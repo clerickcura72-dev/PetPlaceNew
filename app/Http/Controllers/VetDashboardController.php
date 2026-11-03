@@ -104,7 +104,7 @@ class VetDashboardController extends Controller
             ->limit(8)
             ->get();
 
-<<<<<<< HEAD
+
         return view('vet.dashboard', [
             'vet' => $vet,
             'todayAppointments' => $todayAppointments,
@@ -179,12 +179,11 @@ class VetDashboardController extends Controller
         $appointment->save();
 
         return back()->with('status', 'Booking updated.');
-=======
         return view('vet.dashboard', compact(
             'vet', 'requests', 'upcoming', 'patients', 'stats', 'days', 'calendarView',
             'anchor', 'from', 'to', 'search', 'recent', 'dueVaccines'
         ));
->>>>>>> origin/main
+
     }
 
     public function saveAvailability(Request $request): RedirectResponse

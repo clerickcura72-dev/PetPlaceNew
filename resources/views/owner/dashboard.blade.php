@@ -95,18 +95,17 @@ dialog h2{font-size:18px}
     $chosenService = old('service', in_array($prefill['service'] ?? null, $services, true) ? $prefill['service'] : $services[0]);
     $chosenVaccines = old('vaccines', $prefill['vaccines'] ?? []);
 
-<<<<<<< HEAD
+
     <main class="page">
         <h1>Welcome back, {{ $petOwner->first_name }}!</h1>
         <p class="intro">Keep your pet's details close and book a visit whenever they need care.</p>
-=======
+
     $ageText = null;
     if ($selected && $selected->birth_date) {
         $ageText = $selected->birth_date->age >= 1
             ? $selected->birth_date->age . ' year' . ($selected->birth_date->age === 1 ? '' : 's') . ' old'
             : abs((int) $selected->birth_date->diffInMonths(now())) . ' month(s) old';
     }
->>>>>>> origin/main
 
     $nextDue = $selected
         ? $selected->vaccinationRecords->filter(fn ($r) => $r->next_due_date && ! $r->next_due_date->isPast())->sortBy('next_due_date')->first()
@@ -132,7 +131,7 @@ dialog h2{font-size:18px}
     <div class="flash err"><ul>@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
   @endif
 
-<<<<<<< HEAD
+
             <div class="side-stack">
                 <section class="card section-card" id="request-appointment">
                     <div class="section-heading">
@@ -200,7 +199,7 @@ dialog h2{font-size:18px}
 =======
   <div class="layout">
     <div class="col">
->>>>>>> origin/main
+
 
       {{-- PET CARD --}}
       @if ($selected)
@@ -214,7 +213,7 @@ dialog h2{font-size:18px}
             <div class="ptype">{{ $selected->type }}@if ($selected->breed) · {{ $selected->breed }}@endif</div>
           </div>
 
-<<<<<<< HEAD
+
                             <div class="field">
                                 <label>Vaccination status from the pet's records</label>
                                 <div class="grooming-vaccines">
@@ -357,7 +356,7 @@ dialog h2{font-size:18px}
                     @endif
                 </section>
             </div>
-=======
+
           <form method="POST" action="{{ route('owner.pets.photo', $selected) }}" enctype="multipart/form-data">
             @csrf
             <input type="file" name="photo" id="photoInput" accept="image/*" hidden onchange="this.form.submit()">
@@ -372,7 +371,7 @@ dialog h2{font-size:18px}
             </label>
             <button class="btn" type="submit">View pet</button>
           </form>
->>>>>>> origin/main
+
         </div>
 
         <div class="tiles">
@@ -388,7 +387,7 @@ dialog h2{font-size:18px}
           </div>
         </div>
 
-<<<<<<< HEAD
+
                 <div class="vaccination-summary">
                     <div class="vaccination-summary-copy">
                         <strong>{{ $vaccinationSummary['coreUpToDate'] }} of {{ $vaccinationSummary['coreTotal'] }} core vaccines up to date</strong>
@@ -437,7 +436,7 @@ dialog h2{font-size:18px}
                         </article>
                     @endforeach
                 </div>
-=======
+
         <div class="mini">
           <button type="button" class="link" onclick="document.getElementById('birthForm').hidden = !document.getElementById('birthForm').hidden">✎ {{ $selected->birth_date ? 'Edit birthdate' : 'Add birthdate' }}</button>
           <button type="button" class="link" onclick="openPet(this)"
@@ -458,7 +457,7 @@ dialog h2{font-size:18px}
           <button class="btn" type="submit">Save date</button>
         </form>
       </section>
->>>>>>> origin/main
+
 
       {{-- VACCINATION RECORDS --}}
       <section class="card" id="vaccinations">

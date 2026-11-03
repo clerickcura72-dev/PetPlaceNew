@@ -163,7 +163,7 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
               <input type="date" name="date" value="{{ $anchor->toDateString() }}">
               <button class="btn tog" type="submit">Go</button>
             </form>
-<<<<<<< HEAD
+
         </header>
 
         @if (session('status'))
@@ -283,9 +283,8 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
                     <button class="btn" type="submit">Save availability</button>
                 </form>
             </section>
-=======
           </div>
->>>>>>> origin/main
+
         </div>
         @foreach ($days as $day)
           <div class="dayrow">
@@ -403,7 +402,7 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
       @endforelse
     </section>
 
-<<<<<<< HEAD
+
                     <h3 style="margin-top:24px">Record a visit</h3>
                     <form method="POST" action="{{ route('vet.visits.store') }}" class="no-print">
                         @csrf
@@ -513,7 +512,7 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
             @endforelse
         </section>
     </main>
-=======
+
     {{-- NOTIFICATIONS --}}
     <section class="card">
       <h2>Notifications</h2>
@@ -529,7 +528,7 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
       @endif
     </section>
   </main>
->>>>>>> origin/main
+
 </div>
 
 {{-- ONE RECORD DIALOG PER PATIENT: full history + add forms --}}
