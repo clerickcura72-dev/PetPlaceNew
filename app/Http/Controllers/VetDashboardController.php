@@ -240,11 +240,7 @@ class VetDashboardController extends Controller
 
         $appointment->save();
 
-<<<<<<< HEAD
         return back()->with('status', 'Booking updated.');
-=======
-        return back()->with('status', 'Appointment request updated.');
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
     }
 
     public function saveAvailability(Request $request): RedirectResponse
