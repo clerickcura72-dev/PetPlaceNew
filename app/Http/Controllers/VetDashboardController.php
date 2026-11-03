@@ -7,424 +7,228 @@ use App\Models\Pet;
 use App\Models\VaccinationRecord;
 use App\Models\Vet;
 use App\Models\VisitRecord;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class VetDashboardController extends Controller
 {
-    private const VACCINE_OPTIONS = [
-        'dog' => [
-            'dog_rabies' => 'Anti-rabies',
-            'dog_cdv' => 'Canine Distemper Virus (CDV)',
-            'dog_adenovirus' => 'Canine Adenovirus Type 1 & 2',
-            'dog_parvovirus' => 'Canine Parvovirus (CPV)',
-            'dog_parainfluenza' => 'Canine Parainfluenza',
-            'dog_leptospirosis' => 'Leptospirosis',
-            'dog_lyme' => 'Lyme Disease',
-            'dog_influenza' => 'Canine Influenza (Dog Flu)',
-            'dog_coronavirus' => 'Canine Coronavirus',
-            'dog_bordetella' => 'Bordetella bronchiseptica',
-        ],
-        'cat' => [
-            'cat_fvrcp' => 'FVRCP (3-in-1 Combo Vaccine)',
-            'cat_rhinotracheitis' => 'Feline Viral Rhinotracheitis',
-            'cat_calicivirus' => 'Feline Calicivirus',
-            'cat_panleukopenia' => 'Feline Panleukopenia',
-            'cat_rabies' => 'Anti-rabies',
-            'cat_felv' => 'Feline Leukemia Virus (FeLV)',
-            'cat_fiv' => 'Feline Immunodeficiency Virus (FIV)',
-            'cat_bordetella' => 'Bordetella bronchiseptica',
-            'cat_fip' => 'Feline Infectious Peritonitis (FIP)',
-        ],
-    ];
-
     public function show(Request $request): View|RedirectResponse
     {
-        $vet = $this->authenticatedVeterinarian($request);
-        $today = today();
-        $weekValue = $request->validate(['week' => ['nullable', 'date']])['week'] ?? null;
-        $calendarView = $request->input('calendar_view') === 'day' ? 'day' : 'week';
-        $calendarDate = $weekValue ? Carbon::parse($weekValue) : $today->copy();
-        $weekStart = $calendarView === 'day'
-            ? $calendarDate->copy()->startOfDay()
-            : $calendarDate->copy()->startOfWeek();
-        $weekEnd = $calendarView === 'day'
-            ? $calendarDate->copy()->endOfDay()
-            : $calendarDate->copy()->endOfWeek();
+        $user = $request->user();
 
-        $appointments = Appointment::with(['pet', 'petOwner.user', 'vet'])
-            ->where('service_type', '!=', 'Grooming')
-            ->where(function ($query) use ($vet) {
-                $query->where('vet_id', $vet->id)
-                    ->orWhere(function ($unassigned) {
-                        $unassigned->whereNull('vet_id')->where('status', 'pending');
-                    });
-            });
+        if ($user->role !== 'vet') {
+            return redirect()->route($user->dashboardRouteName());
+        }
 
-        $pendingRequests = (clone $appointments)
-            ->where('status', 'pending')
-            ->orderBy('appointment_at')
+        $vet   = $this->vet($request);
+        $today = Carbon::today();
+
+        $appointments = fn (string $status) => Appointment::where(function ($q) use ($vet, $status) {
+                $q->where('vet_id', $vet->id);
+                // Bookings where the owner chose "any available veterinarian" go to every vet until one answers.
+                if ($status === 'pending') {
+                    $q->orWhereNull('vet_id');
+                }
+            })
+            ->where('status', $status)
+            ->with('pet.owner')
+            ->orderBy('appointment_date')
+            ->orderBy('appointment_time')
             ->get();
-        $calendarAppointments = Appointment::with(['pet', 'petOwner'])
-            ->where('vet_id', $vet->id)
-            ->where('status', 'confirmed')
-            ->whereBetween('appointment_at', [$weekStart->copy()->startOfDay(), $weekEnd->copy()->endOfDay()])
-            ->orderBy('appointment_at')
+
+        $requests = $appointments('pending');    // pending bookings
+        $upcoming = $appointments('approved');   // confirmed appointments
+
+        // A "patient" is a pet with an approved/completed appointment or a visit record with this vet.
+        $patients = $this->patients($vet)
+            ->with([
+                'owner',
+                'visitRecords'       => fn ($q) => $q->with('vet')->orderByDesc('visit_date'),
+                'vaccinationRecords' => fn ($q) => $q->with('vet')->orderByDesc('date_given'),
+                'appointments'       => fn ($q) => $q->where('vet_id', $vet->id)->orderByDesc('appointment_date'),
+            ])
+            ->orderBy('name')
             ->get();
-        $recentAppointments = Appointment::with(['pet', 'petOwner'])
-            ->where('vet_id', $vet->id)
-            ->where('service_type', '!=', 'Grooming')
-            ->orderByDesc('appointment_at')
-            ->limit(12)
-            ->get();
-        $todayAppointments = Appointment::where('vet_id', $vet->id)
-            ->where('status', 'confirmed')
-            ->whereDate('appointment_at', $today)
-            ->count();
-        $patientsSeenThisWeek = VisitRecord::where('vet_id', $vet->id)
-            ->whereBetween('visit_date', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
-            ->pluck('pet_id')
-            ->merge(Appointment::where('vet_id', $vet->id)
-                ->where('status', 'completed')
-                ->whereBetween('appointment_at', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
-                ->pluck('pet_id'))
-            ->unique()
-            ->count();
-        $vaccinationsDueSoon = VaccinationRecord::where(function ($query) use ($vet) {
-            $query->where('vet_id', $vet->id)
-                ->orWhereHas('pet.appointments', fn ($appointments) => $appointments->where('vet_id', $vet->id));
-        })
+
+        $patientIds = $patients->pluck('id');
+
+        // Patient search (pet or owner name)
+        $search = trim((string) $request->query('q', ''));
+        if ($search !== '') {
+            $patients = $patients->filter(fn ($p) => mb_stripos($p->name, $search) !== false
+                || mb_stripos($p->owner->first_name . ' ' . $p->owner->last_name, $search) !== false)->values();
+        }
+
+        // Schedule: week (Mon-Sun) or single day
+        $calendarView = $request->query('calendar_view') === 'day' ? 'day' : 'week';
+        try {
+            $anchor = Carbon::parse((string) $request->query('date', $today->toDateString()))->startOfDay();
+        } catch (\Throwable $e) {
+            $anchor = $today->copy();
+        }
+        $from = $calendarView === 'day' ? $anchor->copy() : $anchor->copy()->startOfWeek(Carbon::MONDAY);
+        $to   = $calendarView === 'day' ? $anchor->copy() : $from->copy()->addDays(6);
+
+        $byDate = $upcoming
+            ->filter(fn ($a) => $a->appointment_date->between($from, $to))
+            ->groupBy(fn ($a) => $a->appointment_date->toDateString());
+
+        $days = [];
+        for ($d = $from->copy(); $d->lte($to); $d->addDay()) {
+            $days[] = ['date' => $d->copy(), 'items' => $byDate->get($d->toDateString(), collect())];
+        }
+
+        // Vaccinations due in the next 30 days
+        $dueVaccines = VaccinationRecord::whereIn('pet_id', $patientIds)
             ->whereBetween('next_due_date', [$today, $today->copy()->addDays(30)])
-            ->count();
+            ->with('pet.owner')
+            ->orderBy('next_due_date')
+            ->get();
 
-        $patientsQuery = Pet::with(['petOwner.user'])
-            ->where(function ($query) use ($vet) {
-                $query->whereHas('appointments', fn ($appointments) => $appointments
-                    ->where('vet_id', $vet->id)
-                    ->whereIn('status', ['confirmed', 'completed']))
-                    ->orWhereHas('visitRecords', fn ($visits) => $visits->where('vet_id', $vet->id));
-            });
-        if ($request->filled('search')) {
-            $search = trim((string) $request->input('search'));
-            $searchTerms = preg_split('/\s+/', $search, -1, PREG_SPLIT_NO_EMPTY);
-            $patientsQuery->where(function ($query) use ($search, $searchTerms) {
-                $query->where('pet_name', 'like', '%'.$search.'%')
-                    ->orWhereHas('petOwner', function ($owner) use ($searchTerms) {
-                        $owner->where(function ($names) use ($searchTerms) {
-                            foreach ($searchTerms as $term) {
-                                $names->where(function ($name) use ($term) {
-                                    $name->where('first_name', 'like', '%'.$term.'%')
-                                        ->orWhere('last_name', 'like', '%'.$term.'%');
-                                });
-                            }
-                        });
-                    });
-            });
-        }
-        $patients = $patientsQuery->orderBy('pet_name')->paginate(10)->withQueryString();
+        $stats = [
+            'today'    => $upcoming->filter(fn ($a) => $a->appointment_date->isSameDay($today))->count(),
+            'pending'  => $requests->count(),
+            'week'     => VisitRecord::where('vet_id', $vet->id)
+                ->whereBetween('visit_date', [$today->copy()->startOfWeek(), $today->copy()->endOfWeek()])
+                ->distinct()->count('pet_id'),
+            'vaccines' => $dueVaccines->count(),
+        ];
 
-        $selectedPatient = null;
-        $selectedPatientVisits = collect();
-        $selectedPatientVaccinations = collect();
-        if ($request->filled('patient_id')) {
-            $selectedPatient = (clone $patientsQuery)->whereKey($request->integer('patient_id'))->first();
-            if ($selectedPatient) {
-                $selectedPatientVisits = VisitRecord::where('vet_id', $vet->id)
-                    ->where('pet_id', $selectedPatient->id)
-                    ->orderByDesc('visit_date')
-                    ->get();
-                $selectedPatientVaccinations = $selectedPatient->vaccinationRecords()
-                    ->with('veterinarian')
-                    ->orderByDesc('date_given')
-                    ->get();
-            }
-        }
-
-        $notifications = Appointment::with(['pet', 'petOwner'])
-            ->where(function ($query) use ($vet) {
-                $query->where('vet_id', $vet->id)
-                    ->orWhere(function ($unassigned) {
-                        $unassigned->whereNull('vet_id')->where('status', 'pending');
-                    });
-            })
-            ->where(function ($query) use ($today) {
-                $query->where('status', 'pending')
-                    ->orWhere(function ($upcoming) use ($today) {
-                        $upcoming->where('status', 'confirmed')
-                            ->whereBetween('appointment_at', [$today->copy()->startOfDay(), $today->copy()->addDay()->endOfDay()]);
-                    })
-                    ->orWhere(function ($cancelled) use ($today) {
-                        $cancelled->where('status', 'cancelled')
-                            ->where('updated_at', '>=', $today->copy()->subDays(7)->startOfDay());
-                    });
-            })
-            ->where('service_type', '!=', 'Grooming')
-            ->orderBy('appointment_at')
+        $recent = Appointment::where('vet_id', $vet->id)
+            ->whereIn('status', ['approved', 'declined', 'completed'])
+            ->with('pet.owner')
+            ->latest('updated_at')
             ->limit(8)
             ->get();
 
-        return view('vet.dashboard', [
-            'vet' => $vet,
-            'todayAppointments' => $todayAppointments,
-            'pendingCount' => $pendingRequests->count(),
-            'patientsSeenThisWeek' => $patientsSeenThisWeek,
-            'vaccinationsDueSoon' => $vaccinationsDueSoon,
-            'pendingRequests' => $pendingRequests,
-            'calendarAppointments' => $calendarAppointments,
-            'recentAppointments' => $recentAppointments,
-            'weekStart' => $weekStart,
-            'weekEnd' => $weekEnd,
-            'patients' => $patients,
-            'selectedPatient' => $selectedPatient,
-            'selectedPatientVisits' => $selectedPatientVisits,
-            'selectedPatientVaccinations' => $selectedPatientVaccinations,
-            'patientVaccineOptions' => self::VACCINE_OPTIONS[strtolower($selectedPatient?->pet_type ?? '')] ?? [],
-            'vaccineLabels' => collect(self::VACCINE_OPTIONS)
-                ->flatMap(fn (array $options) => $options)
-                ->all(),
-            'notifications' => $notifications,
-            'weekDays' => $calendarView === 'day'
-                ? collect([$calendarDate->copy()])
-                : collect(range(0, 6))->map(fn (int $offset) => $weekStart->copy()->addDays($offset)),
-            'calendarView' => $calendarView,
-            'calendarDate' => $calendarDate,
-            'search' => $request->input('search'),
-        ]);
-    }
-
-    public function updateAppointment(Request $request, Appointment $appointment): RedirectResponse
-    {
-        $vet = $this->authenticatedVeterinarian($request);
-        abort_unless($appointment->service_type !== 'Grooming', 404);
-
-        $validated = $request->validate([
-            'action' => ['required', Rule::in(['accept', 'decline', 'reschedule', 'complete'])],
-            'decision_reason' => ['required_if:action,decline,reschedule', 'nullable', 'string', 'max:1000'],
-            'appointment_at' => ['required_if:action,reschedule', 'nullable', 'date', 'after:now'],
-        ]);
-        if ($validated['action'] === 'complete') {
-            abort_unless($appointment->vet_id === $vet->id && $appointment->status === 'confirmed', 404);
-        } else {
-            abort_unless(
-                $appointment->status === 'pending'
-                && ($appointment->vet_id === null || $appointment->vet_id === $vet->id),
-                404
-            );
-        }
-        if ($validated['action'] === 'accept') {
-            $this->assertAvailable($vet, $appointment->appointment_at);
-        }
-
-        if ($validated['action'] === 'accept') {
-            $appointment->status = 'confirmed';
-            $appointment->vet_id = $vet->id;
-            $appointment->decision_reason = null;
-        } elseif ($validated['action'] === 'decline') {
-            $appointment->status = 'cancelled';
-            $appointment->vet_id = $vet->id;
-            $appointment->decision_reason = $validated['decision_reason'];
-        } elseif ($validated['action'] === 'reschedule') {
-            $this->assertAvailable($vet, Carbon::parse($validated['appointment_at']));
-            $appointment->status = 'confirmed';
-            $appointment->vet_id = $vet->id;
-            $appointment->appointment_at = $validated['appointment_at'];
-            $appointment->decision_reason = $validated['decision_reason'];
-        } else {
-            abort_unless($appointment->vet_id === $vet->id && $appointment->status === 'confirmed', 404);
-            $appointment->status = 'completed';
-        }
-
-        $appointment->save();
-
-        return back()->with('status', 'Booking updated.');
+        return view('vet.dashboard', compact(
+            'vet', 'requests', 'upcoming', 'patients', 'stats', 'days', 'calendarView',
+            'anchor', 'from', 'to', 'search', 'recent', 'dueVaccines'
+        ));
     }
 
     public function saveAvailability(Request $request): RedirectResponse
     {
-        $vet = $this->authenticatedVeterinarian($request);
-        $validated = $request->validate([
-            'working_days' => ['nullable', 'array'],
-            'working_days.*' => ['required', Rule::in(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'])],
-            'working_hours_start' => ['required_with:working_days', 'nullable', 'date_format:H:i'],
-            'working_hours_end' => ['required_with:working_days', 'nullable', 'date_format:H:i', 'after:working_hours_start'],
-            'days_off' => ['nullable', 'array'],
-            'days_off.*' => ['required', 'date', 'after_or_equal:today'],
+        $vet = $this->vet($request);
+        $daysOff = collect($vet->days_off ?? []);
+
+        // A single "Remove" button on a day off.
+        if ($request->filled('remove_day_off')) {
+            $daysOff = $daysOff->reject(fn ($d) => $d === $request->input('remove_day_off'));
+            $vet->update(['days_off' => $daysOff->values()->all()]);
+
+            return redirect()->to(route('vet.dashboard') . '#profile')->with('success', 'Day off removed.');
+        }
+
+        $data = $request->validate([
+            'working_days'   => ['nullable', 'array'],
+            'working_days.*' => [Rule::in(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])],
+            'work_start'     => ['nullable', 'required_with:work_end', 'date_format:H:i'],
+            'work_end'       => ['nullable', 'required_with:work_start', 'date_format:H:i', 'after:work_start'],
+            'day_off'        => ['nullable', 'date', 'after_or_equal:today'],
         ]);
+
+        if (! empty($data['day_off'])) {
+            $daysOff->push(Carbon::parse($data['day_off'])->toDateString());
+        }
 
         $vet->update([
-            'working_days' => array_values(array_unique($validated['working_days'] ?? [])),
-            'working_hours_start' => $validated['working_hours_start'] ?? null,
-            'working_hours_end' => $validated['working_hours_end'] ?? null,
-            'days_off' => array_values(array_unique($validated['days_off'] ?? [])),
+            'working_days' => array_values($data['working_days'] ?? []),
+            'work_start'   => $data['work_start'] ?? null,
+            'work_end'     => $data['work_end'] ?? null,
+            'days_off'     => $daysOff->unique()->sort()->values()->all(),
         ]);
 
-        return back()->with('status', 'Availability settings saved.');
+        return redirect()->to(route('vet.dashboard') . '#profile')->with('success', 'Availability saved.');
     }
 
-    public function storeVisit(Request $request): RedirectResponse
+    public function respond(Request $request, Appointment $appointment): RedirectResponse
     {
-        $vet = $this->authenticatedVeterinarian($request);
-        $validated = $request->validate([
-            'pet_id' => ['required', 'integer'],
-            'appointment_id' => ['nullable', 'integer'],
-            'visit_date' => ['required', 'date', 'before_or_equal:today'],
-            'reason' => ['nullable', 'string', 'max:2000'],
-            'diagnosis' => ['nullable', 'string', 'max:4000'],
-            'treatment' => ['nullable', 'string', 'max:4000'],
-            'follow_up_date' => ['nullable', 'date', 'after_or_equal:today'],
-            'prescription_medicine' => ['nullable', 'string', 'max:255'],
-            'prescription_dosage' => ['nullable', 'string', 'max:255'],
-            'prescription_duration' => ['nullable', 'string', 'max:255'],
-            'prescription_instructions' => ['nullable', 'string', 'max:1000'],
+        $vet = $this->vet($request);
+
+        abort_unless(
+            ($appointment->vet_id === null || (int) $appointment->vet_id === (int) $vet->id)
+            && $appointment->status === 'pending',
+            403
+        );
+
+        $data = $request->validate([
+            'decision' => ['required', Rule::in(['approved', 'declined'])],
+            'vet_note' => ['nullable', 'string', 'max:500'],
         ]);
-        $pet = $this->patientForVet($vet, $validated['pet_id']);
-        $appointment = null;
-        if (! empty($validated['appointment_id'])) {
-            $appointment = Appointment::where('id', $validated['appointment_id'])
+
+        // Whoever answers an "any vet" request becomes its veterinarian.
+        $appointment->update([
+            'vet_id'   => $vet->id,
+            'status'   => $data['decision'],
+            'vet_note' => $data['vet_note'] ?? null,
+        ]);
+
+        return redirect()->route('vet.dashboard')->with('success', 'Booking ' . $data['decision'] . '.');
+    }
+
+    public function storeVisit(Request $request, Pet $pet): RedirectResponse
+    {
+        $vet = $this->vet($request);
+        abort_unless($this->patients($vet)->whereKey($pet->id)->exists(), 403);
+
+        $data = $request->validate([
+            'visit_date'     => ['required', 'date', 'before_or_equal:today'],
+            'reason'         => ['nullable', 'string', 'max:255'],
+            'diagnosis'      => ['nullable', 'string', 'max:1000'],
+            'treatment'      => ['nullable', 'string', 'max:1000'],
+            'notes'          => ['nullable', 'string', 'max:1000'],
+            'appointment_id' => ['nullable', 'integer', Rule::exists('appointments', 'id')
+                ->where('vet_id', $vet->id)->where('pet_id', $pet->id)->where('status', 'approved')],
+        ]);
+
+        VisitRecord::create($data + ['pet_id' => $pet->id, 'vet_id' => $vet->id]);
+
+        // Saving a visit note for an approved appointment marks it completed.
+        if (! empty($data['appointment_id'])) {
+            Appointment::whereKey($data['appointment_id'])->update(['status' => 'completed']);
+        }
+
+        return redirect()->route('vet.dashboard')->with('success', 'Visit note saved.');
+    }
+
+    public function storeVaccination(Request $request, Pet $pet): RedirectResponse
+    {
+        $vet = $this->vet($request);
+        abort_unless($this->patients($vet)->whereKey($pet->id)->exists(), 403);
+
+        $data = $request->validate([
+            'vaccine_name'  => ['required', 'string', 'max:100'],
+            'date_given'    => ['required', 'date', 'before_or_equal:today'],
+            'next_due_date' => ['nullable', 'date', 'after_or_equal:date_given'],
+            'dose_number'   => ['nullable', 'integer', 'min:1', 'max:20'],
+            'notes'         => ['nullable', 'string', 'max:500'],
+        ]);
+
+        VaccinationRecord::create($data + ['pet_id' => $pet->id, 'vet_id' => $vet->id]);
+
+        return redirect()->route('vet.dashboard')->with('success', 'Vaccination recorded.');
+    }
+
+    // ── helpers ──────────────────────────────────────────────
+
+    private function vet(Request $request): Vet
+    {
+        abort_unless($request->user()->role === 'vet', 403);
+
+        return Vet::where('user_id', $request->user()->id)->firstOrFail();
+    }
+
+    private function patients(Vet $vet)
+    {
+        return Pet::where(function ($outer) use ($vet) {
+            $outer->whereHas('appointments', fn ($q) => $q
                 ->where('vet_id', $vet->id)
-                ->where('pet_id', $pet->id)
-                ->firstOrFail();
-        }
-
-        $prescription = array_filter([
-            'medicine' => $validated['prescription_medicine'] ?? null,
-            'dosage' => $validated['prescription_dosage'] ?? null,
-            'duration' => $validated['prescription_duration'] ?? null,
-            'instructions' => $validated['prescription_instructions'] ?? null,
-        ]);
-        VisitRecord::create([
-            'pet_id' => $pet->id,
-            'vet_id' => $vet->id,
-            'appointment_id' => $appointment?->id,
-            'visit_date' => $validated['visit_date'],
-            'reason' => $validated['reason'] ?? null,
-            'diagnosis' => $validated['diagnosis'] ?? null,
-            'treatment' => $validated['treatment'] ?? null,
-            'prescriptions' => $prescription ?: null,
-            'follow_up_date' => $validated['follow_up_date'] ?? null,
-        ]);
-        if ($appointment && $appointment->status === 'confirmed') {
-            $appointment->update(['status' => 'completed']);
-        }
-
-        return redirect()->route('vet.dashboard', ['patient_id' => $pet->id])
-            ->with('status', 'Visit record saved.');
-    }
-
-    public function updatePatient(Request $request, Pet $pet): RedirectResponse
-    {
-        $vet = $this->authenticatedVeterinarian($request);
-        $this->patientForVet($vet, $pet->id);
-        $validated = $request->validate([
-            'breed' => ['nullable', 'string', 'max:255'],
-            'weight' => ['nullable', 'numeric', 'gt:0', 'max:99999.99'],
-            'allergies' => ['nullable', 'string', 'max:4000'],
-        ]);
-        $pet->update($validated);
-
-        return redirect()->route('vet.dashboard', ['patient_id' => $pet->id])
-            ->with('status', 'Patient profile updated.');
-    }
-
-    public function storeVaccination(Request $request): RedirectResponse
-    {
-        $vet = $this->authenticatedVeterinarian($request);
-        $validated = $request->validate([
-            'pet_id' => ['required', 'integer'],
-            'vaccine_key' => ['required', 'string', 'max:100'],
-            'vaccine_name' => ['required_if:vaccine_key,other', 'nullable', 'string', 'max:100'],
-            'category' => ['required', Rule::in(['Core', 'Non-core (Lifestyle)'])],
-            'date_given' => ['required', 'date', 'before_or_equal:today'],
-            'next_due_date' => ['required', 'date', 'after_or_equal:date_given'],
-            'dose_number' => ['nullable', 'string', 'max:50'],
-            'brand' => ['nullable', 'string', 'max:255'],
-            'batch_number' => ['nullable', 'string', 'max:255'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
-        $pet = $this->patientForVet($vet, $validated['pet_id']);
-        $validVaccineKeys = array_keys(self::VACCINE_OPTIONS[strtolower($pet->pet_type ?? '')] ?? []);
-        if (in_array($validated['vaccine_key'], $validVaccineKeys, true)) {
-            $vaccineKey = $validated['vaccine_key'];
-        } elseif ($validated['vaccine_key'] === 'other') {
-            $vaccineKey = trim($validated['vaccine_name']);
-        } elseif (! $validVaccineKeys) {
-            $vaccineKey = trim($validated['vaccine_key']);
-        } else {
-            throw ValidationException::withMessages([
-                'vaccine_key' => 'Choose a listed vaccine or select Other.',
-            ]);
-        }
-
-        $record = VaccinationRecord::create([
-            'pet_id' => $pet->id,
-            'vet_id' => $vet->id,
-            'vaccine_key' => $vaccineKey,
-            'category' => $validated['category'],
-            'date_given' => $validated['date_given'],
-            'next_due_date' => $validated['next_due_date'],
-            'veterinarian_name' => $vet->first_name.' '.$vet->last_name,
-            'dose_number' => $validated['dose_number'] ?? null,
-            'brand' => $validated['brand'] ?? null,
-            'batch_number' => $validated['batch_number'] ?? null,
-            'notes' => $validated['notes'] ?? null,
-        ]);
-
-        return redirect()->route('vet.dashboard', ['patient_id' => $pet->id, 'certificate' => $record->id])
-            ->with('status', 'Vaccination record saved.');
-    }
-
-    public function certificate(Request $request, VaccinationRecord $vaccinationRecord): View
-    {
-        $vet = $this->authenticatedVeterinarian($request);
-        abort_unless($vaccinationRecord->vet_id === $vet->id, 404);
-
-        return view('vet.vaccination-certificate', [
-            'record' => $vaccinationRecord->load(['pet.petOwner', 'veterinarian']),
-            'vaccineName' => self::VACCINE_OPTIONS[strtolower($vaccinationRecord->pet->pet_type ?? '')][$vaccinationRecord->vaccine_key] ?? $vaccinationRecord->vaccine_key,
-        ]);
-    }
-
-    private function authenticatedVeterinarian(Request $request): Vet
-    {
-        abort_unless($request->user()?->role === 'vet', 403);
-
-        return Vet::where('user_id', $request->user()->id)
-            ->where('staff_type', 'veterinarian')
-            ->firstOrFail();
-    }
-
-    private function patientForVet(Vet $vet, int $petId): Pet
-    {
-        return Pet::whereKey($petId)
-            ->where(function ($query) use ($vet) {
-                $query->whereHas('appointments', fn ($appointments) => $appointments
-                    ->where('vet_id', $vet->id)
-                    ->whereIn('status', ['confirmed', 'completed']))
-                    ->orWhereHas('visitRecords', fn ($visits) => $visits->where('vet_id', $vet->id));
-            })
-            ->firstOrFail();
-    }
-
-    private function assertAvailable(Vet $vet, Carbon $appointmentAt): void
-    {
-        $daysOff = $vet->days_off ?? [];
-        $workingDays = $vet->working_days ?? [];
-        if (in_array($appointmentAt->toDateString(), $daysOff, true)) {
-            abort(422, 'The selected time is outside your saved availability.');
-        }
-
-        if (empty($workingDays) || ! $vet->working_hours_start || ! $vet->working_hours_end) {
-            return;
-        }
-
-        if (! in_array($appointmentAt->format('l'), $workingDays, true)
-            || $appointmentAt->format('H:i:s') < $vet->working_hours_start
-            || $appointmentAt->format('H:i:s') >= $vet->working_hours_end) {
-            abort(422, 'The selected time is outside your saved availability.');
-        }
+                ->whereIn('status', ['approved', 'completed']))
+                ->orWhereHas('visitRecords', fn ($q) => $q->where('vet_id', $vet->id));
+        });
     }
 }
