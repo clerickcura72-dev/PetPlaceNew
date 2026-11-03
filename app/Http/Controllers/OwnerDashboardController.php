@@ -361,7 +361,11 @@ class OwnerDashboardController extends Controller
             'reason' => $validated['reason'] ?? null,
         ]);
 
+<<<<<<< HEAD
         return back()->with('status', 'Your appointment has been booked.');
+=======
+        return back()->with('status', 'Your appointment request has been sent.');
+>>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
     }
 
     private function groomingRule(Request $request, array $choices): array

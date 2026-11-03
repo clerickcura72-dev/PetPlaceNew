@@ -111,14 +111,22 @@
 
         <section class="cards" aria-label="Today's overview">
             <div class="metric"><strong>{{ $todayAppointments }}</strong><span>Appointments today</span></div>
+<<<<<<< HEAD
             <div class="metric"><strong>{{ $pendingCount }}</strong><span>Pending bookings</span></div>
+=======
+            <div class="metric"><strong>{{ $pendingCount }}</strong><span>Pending requests</span></div>
+>>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
             <div class="metric"><strong>{{ $patientsSeenThisWeek }}</strong><span>Patients seen this week</span></div>
             <div class="metric"><strong>{{ $vaccinationsDueSoon }}</strong><span>Vaccinations due in 30 days</span></div>
         </section>
 
         <section class="panel" id="requests">
             <div class="section-head">
+<<<<<<< HEAD
                 <div><h2>Pending bookings</h2><p class="muted">Bookings assigned to you or awaiting a veterinarian.</p></div>
+=======
+                <div><h2>Appointment requests</h2><p class="muted">Veterinary requests assigned to you or awaiting a veterinarian.</p></div>
+>>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
             </div>
             @forelse ($pendingRequests as $appointment)
                 <article class="request-card">
@@ -151,7 +159,11 @@
                     </div>
                 </article>
             @empty
+<<<<<<< HEAD
                 <p class="muted">There are no pending bookings.</p>
+=======
+                <p class="muted">There are no pending veterinary requests.</p>
+>>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
             @endforelse
         </section>
 
@@ -373,11 +385,19 @@
             <h2>Notifications</h2>
             @forelse ($notifications as $notification)
                 <div class="record">
+<<<<<<< HEAD
                     <strong>{{ $notification->status === 'pending' ? 'New booking' : ($notification->status === 'cancelled' ? 'Appointment cancelled or declined' : 'Upcoming appointment') }}</strong>
                     <p>{{ $notification->pet?->pet_name }} · {{ $notification->appointment_at?->format('M j, Y g:i A') }} · {{ $notification->service_type }}</p>
                 </div>
             @empty
                 <p class="muted">No new bookings or appointments coming up.</p>
+=======
+                    <strong>{{ $notification->status === 'pending' ? 'New appointment request' : ($notification->status === 'cancelled' ? 'Appointment cancelled or declined' : 'Upcoming appointment') }}</strong>
+                    <p>{{ $notification->pet?->pet_name }} · {{ $notification->appointment_at?->format('M j, Y g:i A') }} · {{ $notification->service_type }}</p>
+                </div>
+            @empty
+                <p class="muted">No new requests or appointments coming up.</p>
+>>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
             @endforelse
         </section>
     </main>
