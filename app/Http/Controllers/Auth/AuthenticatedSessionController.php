@@ -11,53 +11,56 @@ use Illuminate\View\View;
 
 class AuthenticatedSessionController extends Controller
 {
+    /**
+     * Display the login view.
+     */
     public function create(): View
     {
         return view('auth.login');
     }
 
+    /**
+     * Handle an incoming authentication request.
+     */
     public function store(LoginRequest $request): RedirectResponse
-    {
-        $request->authenticate();
+{
+    $request->authenticate();
+    $request->session()->regenerate();
 
-        $request->session()->regenerate();
+    $user = auth()->user();
+    $intendedRole = $request->input('role');
 
-        $user = auth()->user();
-        $intendedRole = $request->input('role');
+    // Admins may sign in from either login page.
+    if (! $user->isAdmin() && $intendedRole && $user->role !== $intendedRole) {
+        Auth::logout();
 
-        // Allow admin accounts through either login page.
-        if (
-            !$user->isAdmin() &&
-            $intendedRole &&
-            $user->role !== $intendedRole
-        ) {
-            Auth::logout();
+        $accountType = $intendedRole === 'vet' ? 'Veterinarian' : 'Pet Owner';
 
-            $accountType = $intendedRole === 'vet'
-                ? 'Veterinarian'
-                : 'Pet Owner';
-
-            return back()->withErrors([
-                'email' => 'This account is not registered as a ' . $accountType . '.',
-            ]);
-        }
-
-        // Prevent unapproved vets and groomers from logging in.
-        if ($user->role === 'vet') {
-            $approvalStatus = $user->vetProfile()->value('approval_status');
-
-            if ($approvalStatus !== 'approved') {
-                Auth::logout();
-
-                return back()->withErrors([
-                    'email' => 'Your staff application is awaiting administrator approval or has not been approved.',
-                ]);
-            }
-        }
-
-        return redirect()->route($user->dashboardRouteName());
+        return back()->withErrors([
+            'email' => 'This account is not registered as a ' . $accountType . '.',
+        ]);
     }
 
+    // Vets must be approved by an admin before they can log in.
+    if ($user->role === 'vet') {
+        $status = $user->vetProfile()->value('approval_status');
+
+        if ($status !== 'approved') {
+            Auth::logout();
+
+            return back()->withErrors([
+                'email' => $status === 'rejected'
+                    ? 'Your application was not approved. Please contact the administrator.'
+                    : 'Your application is awaiting administrator approval.',
+            ]);
+        }
+    }
+
+    return redirect()->route($user->dashboardRouteName());
+}
+    /**
+     * Destroy an authenticated session.
+     */
     public function destroy(Request $request): RedirectResponse
     {
         Auth::guard('web')->logout();
