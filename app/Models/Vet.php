@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Vet extends Model
 {
@@ -13,12 +12,10 @@ class Vet extends Model
         'last_name',
         'license_number',
         'clinic_name',
-        'staff_type',
-        'specialty',
         'approval_status',
         'working_days',
-        'working_hours_start',
-        'working_hours_end',
+        'work_start',
+        'work_end',
         'days_off',
     ];
 
@@ -26,32 +23,12 @@ class Vet extends Model
     {
         return [
             'working_days' => 'array',
-            'days_off' => 'array',
+            'days_off'     => 'array',
         ];
     }
 
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function appointments(): HasMany
-    {
-        return $this->hasMany(Appointment::class);
-    }
-
-    public function groomingAppointments(): HasMany
-    {
-        return $this->hasMany(Appointment::class, 'groomer_id');
-    }
-
-    public function visitRecords(): HasMany
-    {
-        return $this->hasMany(VisitRecord::class);
-    }
-
-    public function vaccinationRecords(): HasMany
-    {
-        return $this->hasMany(VaccinationRecord::class);
     }
 }

@@ -131,7 +131,7 @@
 
     <div class="header">
         <h1>Staff Applications</h1>
-        <p>Review and manage veterinarian and groomer applications.</p>
+        <p>Review and manage veterinarian applications.</p>
     </div>
 
     @if(session('success'))
@@ -151,9 +151,7 @@
             </h3>
 
             <p><strong>Email:</strong> {{ $application->user->email }}</p>
-            <p><strong>Staff Type:</strong> {{ ucfirst($application->staff_type) }}</p>
             <p><strong>License Number:</strong> {{ $application->license_number ?? 'Not provided' }}</p>
-            <p><strong>Specialty:</strong> {{ $application->specialty ?? 'Not provided' }}</p>
             <p><strong>Clinic:</strong> {{ $application->clinic_name ?? 'Not provided' }}</p>
             <p><strong>Applied:</strong> {{ $application->created_at->format('M d, Y') }}</p>
 

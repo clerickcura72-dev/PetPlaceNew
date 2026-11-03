@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Staff Register — Pet Place</title>
+<title>Veterinarian Register — Pet Place</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -121,11 +121,11 @@ select{cursor:pointer;color:var(--text);}
   <div class="logo">
     <span class="paw">🐾</span>
     <div class="logo-text">Pet <span>Place.</span></div>
-    <div class="logo-sub">Staff Registration</div>
+    <div class="logo-sub">Veterinarian Registration</div>
   </div>
 
   <div style="text-align:center;">
-    <div class="role-badge">🩺 Create Staff Account</div>
+    <div class="role-badge">🩺 Create Veterinarian Account</div>
   </div>
 
   <div class="card">
@@ -166,45 +166,19 @@ select{cursor:pointer;color:var(--text);}
         @error('email')<div class="field-error">{{ $message }}</div>@enderror
       </div>
 
-      <div class="form-group">
-        <label for="date_of_birth">Date of Birth</label>
-        <input type="date" id="date_of_birth" name="date_of_birth" max="{{ today()->toDateString() }}"
-               value="{{ old('date_of_birth') }}" required/>
-        @error('date_of_birth')<div class="field-error">{{ $message }}</div>@enderror
-      </div>
-
       <div class="section-title">Professional Information</div>
 
       <div class="form-group">
-        <label>Staff role</label>
-        <select name="staff_type" id="staffType" required>
-          <option value="">Select staff role</option>
-          <option value="veterinarian" {{ old('staff_type', 'veterinarian') === 'veterinarian' ? 'selected' : '' }}>Veterinarian</option>
-          <option value="groomer" {{ old('staff_type') === 'groomer' ? 'selected' : '' }}>Groomer</option>
-        </select>
-        @error('staff_type')<div class="field-error">{{ $message }}</div>@enderror
-      </div>
-
-      <div class="form-group" id="specialtyField">
-        <label for="specialty">Veterinary specialty</label>
-        <select name="specialty" id="specialty" required>
-          <option value="">Select animal specialty</option>
-          <option value="dog" {{ old('specialty') === 'dog' ? 'selected' : '' }}>Dogs</option>
-          <option value="cat" {{ old('specialty') === 'cat' ? 'selected' : '' }}>Cats</option>
-          <option value="rabbit" {{ old('specialty') === 'rabbit' ? 'selected' : '' }}>Rabbits</option>
-          <option value="fish" {{ old('specialty') === 'fish' ? 'selected' : '' }}>Fish</option>
-          <option value="bird" {{ old('specialty') === 'bird' ? 'selected' : '' }}>Birds</option>
-          <option value="reptile" {{ old('specialty') === 'reptile' ? 'selected' : '' }}>Reptiles</option>
-        </select>
-        @error('specialty')<div class="field-error">{{ $message }}</div>@enderror
-      </div>
-
-      <div class="form-group" id="licenseField">
-        <label for="license_number">PRC Registration No.</label>
-        <input type="text" id="license_number" name="license_number" placeholder="7 digits, e.g. 0012345"
-               value="{{ old('license_number') }}" inputmode="numeric" pattern="[0-9]{7}" minlength="7" maxlength="7"
-               title="Enter exactly 7 digits, as shown on your PRC ID." autocomplete="off" required/>
+        <label>License Number</label>
+        <input type="text" name="license_number" placeholder="e.g. PRC-VET-12345"
+               value="{{ old('license_number') }}" required/>
         @error('license_number')<div class="field-error">{{ $message }}</div>@enderror
+      </div>
+
+      <div class="form-group">
+        <label>Clinic / Hospital Name</label>
+        <input type="text" name="clinic_name" placeholder="e.g. PetCare Clinic"
+               value="{{ old('clinic_name') }}"/>
       </div>
 
       <div class="section-title">Account Security</div>
@@ -228,7 +202,7 @@ select{cursor:pointer;color:var(--text);}
         </div>
       </div>
 
-      <button type="submit" class="btn">Create Staff Account</button>
+      <button type="submit" class="btn">Create Veterinarian Account</button>
     </form>
 
     <hr class="divider"/>
@@ -245,29 +219,6 @@ function togglePw(fieldId, btnId) {
   f.type = f.type === 'password' ? 'text' : 'password';
   b.textContent = f.type === 'password' ? '👁' : '🙈';
 }
-
-const staffType = document.getElementById('staffType');
-const specialtyField = document.getElementById('specialtyField');
-const specialtySelect = document.getElementById('specialty');
-const licenseField = document.getElementById('licenseField');
-const licenseInput = document.getElementById('license_number');
-
-function toggleSpecialty() {
-  const isVeterinarian = staffType.value === 'veterinarian';
-  specialtyField.hidden = !isVeterinarian;
-  specialtySelect.required = isVeterinarian;
-  specialtySelect.disabled = !isVeterinarian;
-  licenseField.hidden = !isVeterinarian;
-  licenseInput.required = isVeterinarian;
-  licenseInput.disabled = !isVeterinarian;
-}
-
-licenseInput.addEventListener('input', () => {
-  licenseInput.value = licenseInput.value.replace(/[^0-9]/g, '').slice(0, 7);
-});
-
-staffType.addEventListener('change', toggleSpecialty);
-toggleSpecialty();
 </script>
 </body>
 </html>

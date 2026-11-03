@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Staff Login — Pet Place</title>
+<title>Veterinarian Login — Pet Place</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -150,11 +150,11 @@ input[type="password"] {
   <div class="logo">
     <span class="paw">🐾</span>
     <div class="logo-text">Pet <span>Place.</span></div>
-    <div class="logo-sub">Staff Portal</div>
+    <div class="logo-sub">Veterinarian Portal</div>
   </div>
 
   <div style="text-align:center;">
-    <div class="role-badge">🩺 Signing in as Staff</div>
+    <div class="role-badge">🩺 Signing in as Veterinarian</div>
   </div>
 
   <div class="card">
@@ -179,7 +179,7 @@ input[type="password"] {
 
       <div class="form-group">
         <label>Email</label>
-        <input type="email" name="email" placeholder="staff@example.com"
+        <input type="email" name="email" placeholder="vet@example.com"
                value="{{ old('email') }}" required autofocus autocomplete="username"/>
       </div>
 
@@ -202,7 +202,7 @@ input[type="password"] {
         @endif
       </div>
 
-      <button type="submit" class="btn">Sign In as Staff</button>
+      <button type="submit" class="btn">Sign In as Veterinarian</button>
     </form>
 
     <hr class="divider"/>
