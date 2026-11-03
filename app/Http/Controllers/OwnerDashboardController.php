@@ -205,8 +205,12 @@ class OwnerDashboardController extends Controller
             'status'           => 'pending',
         ]);
 
+
+        return back()->with('status', 'Your appointment has been booked.');
+
         return redirect()->route('owner.dashboard', ['pet_id' => $pet->id])
             ->with('success', 'Appointment booked. A veterinarian will review it.');
+
     }
 
     // ── helpers ──────────────────────────────────────────────

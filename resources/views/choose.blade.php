@@ -245,9 +245,15 @@ body{
     <div class="type-name">Veterinarian</div>
     <div class="type-desc">For licensed vets and animal health professionals</div>
     <ul class="features">
+
+      <li>Provide veterinary care</li>
+      <li>Offer grooming services</li>
+      <li>Manage pending bookings</li>
+
       <li>Manage patient records</li>
       <li>Schedule appointments</li>
       <li>Track vaccinations</li>
+
     </ul>
     <div class="card-arrow">Get Started →</div>
   </a>

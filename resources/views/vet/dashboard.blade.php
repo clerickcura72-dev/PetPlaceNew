@@ -163,7 +163,128 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
               <input type="date" name="date" value="{{ $anchor->toDateString() }}">
               <button class="btn tog" type="submit">Go</button>
             </form>
+
+        </header>
+
+        @if (session('status'))
+            <div class="notice">{{ session('status') }}</div>
+        @endif
+        @if ($errors->any())
+            <div class="notice" style="background:#fff0f0;color:#8f2929">
+                <strong>Please check the form:</strong>
+                <ul>@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+            </div>
+        @endif
+
+        <section class="cards" aria-label="Today's overview">
+            <div class="metric"><strong>{{ $todayAppointments }}</strong><span>Appointments today</span></div>
+            <div class="metric"><strong>{{ $pendingCount }}</strong><span>Pending bookings</span></div>
+            <div class="metric"><strong>{{ $patientsSeenThisWeek }}</strong><span>Patients seen this week</span></div>
+            <div class="metric"><strong>{{ $vaccinationsDueSoon }}</strong><span>Vaccinations due in 30 days</span></div>
+        </section>
+
+        <section class="panel" id="requests">
+            <div class="section-head">
+                <div><h2>Pending bookings</h2><p class="muted">Bookings assigned to you or awaiting a veterinarian.</p></div>
+            </div>
+            @forelse ($pendingRequests as $appointment)
+                <article class="request-card">
+                    <div>
+                        <h3>{{ $appointment->pet?->pet_name ?? 'Pet' }} <span class="pill pending">Pending</span></h3>
+                        <p>{{ ucfirst($appointment->pet?->pet_type ?? 'Pet') }} · {{ $appointment->service_type }}</p>
+                        <p class="muted">Owner: {{ $appointment->petOwner?->first_name }} {{ $appointment->petOwner?->last_name }}
+                            @if ($appointment->petOwner?->phone) · {{ $appointment->petOwner->phone }} @endif</p>
+                        <p><strong>Requested:</strong> {{ $appointment->appointment_at?->format('M j, Y g:i A') }}</p>
+                        @if ($appointment->reason)<p><strong>Client notes:</strong> {{ $appointment->reason }}</p>@endif
+                        @if ($appointment->vet_id === null)<p class="muted">Not assigned to a veterinarian yet.</p>@endif
+                    </div>
+                    <div>
+                        <form method="POST" action="{{ route('vet.appointments.update', $appointment) }}" class="no-print">
+                            @csrf @method('PATCH')
+                            <div class="actions">
+                                <button class="btn small" name="action" value="accept">Accept</button>
+                                <button class="btn danger small" name="action" value="decline" onclick="return confirm('Decline this request? Add a reason first.')">Decline</button>
+                            </div>
+                            <div class="field" style="margin-top:10px">
+                                <label for="reason-{{ $appointment->id }}">Reason if declining or rescheduling</label>
+                                <input id="reason-{{ $appointment->id }}" name="decision_reason" maxlength="1000" placeholder="Required for decline or reschedule">
+                            </div>
+                            <div class="actions">
+                                <label for="reschedule-{{ $appointment->id }}">New date/time</label>
+                                <input id="reschedule-{{ $appointment->id }}" type="datetime-local" name="appointment_at">
+                                <button class="btn secondary small" name="action" value="reschedule">Reschedule</button>
+                            </div>
+                        </form>
+                    </div>
+                </article>
+            @empty
+                <p class="muted">There are no pending bookings.</p>
+            @endforelse
+        </section>
+
+        <div class="split">
+            <section class="panel" id="schedule">
+                <div class="section-head">
+                    <div><h2>Schedule</h2><p class="muted">{{ $calendarDate->format('M j, Y') }} @if($calendarView === 'week') – {{ $weekEnd->format('M j, Y') }} @endif</p></div>
+                    <div class="actions no-print">
+                        <a class="btn small {{ $calendarView === 'day' ? '' : 'secondary' }}" href="{{ route('vet.dashboard', ['calendar_view' => 'week', 'week' => $calendarDate->toDateString()]) }}">Week</a>
+                        <a class="btn small {{ $calendarView === 'day' ? 'secondary' : '' }}" href="{{ route('vet.dashboard', ['calendar_view' => 'day', 'week' => today()->toDateString()]) }}">Today</a>
+                        <form method="GET" action="{{ route('vet.dashboard') }}" class="actions">
+                            <input type="hidden" name="calendar_view" value="{{ $calendarView }}">
+                            <input type="date" name="week" value="{{ $calendarDate->toDateString() }}" aria-label="Choose calendar date">
+                            <button class="btn secondary small" type="submit">Go</button>
+                        </form>
+                    </div>
+                </div>
+                @forelse ($weekDays as $day)
+                    <div class="calendar-day">
+                        <strong>{{ $day->format('l, M j') }}</strong>
+                        @php($dayAppointments = $calendarAppointments->filter(fn ($item) => $item->appointment_at?->isSameDay($day)))
+                        @forelse ($dayAppointments as $appointment)
+                            <div class="event">
+                                <strong>{{ $appointment->appointment_at->format('g:i A') }} · {{ $appointment->pet?->pet_name }}</strong>
+                                <div>{{ $appointment->service_type }} · {{ $appointment->petOwner?->first_name }} {{ $appointment->petOwner?->last_name }}</div>
+                                <form method="POST" action="{{ route('vet.appointments.update', $appointment) }}" class="actions no-print">
+                                    @csrf @method('PATCH')
+                                    <button class="btn secondary small" name="action" value="complete">Mark completed</button>
+                                </form>
+                            </div>
+                        @empty
+                            <p class="muted">No confirmed appointments.</p>
+                        @endforelse
+                    </div>
+                @empty
+                    <p class="muted">No schedule found.</p>
+                @endforelse
+            </section>
+
+            <section class="panel" id="profile">
+                <h2>Availability</h2>
+                <p class="muted">Set the days and hours you accept appointments. Day-off dates are excluded.</p>
+                <form method="POST" action="{{ route('vet.availability.update') }}">
+                    @csrf @method('PUT')
+                    <div class="field">
+                        <label>Working days</label>
+                        <div class="check-grid">
+                            @foreach (['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'] as $day)
+                                <label><input type="checkbox" name="working_days[]" value="{{ $day }}" @checked(in_array($day, old('working_days', $vet->working_days ?? []), true))>{{ substr($day, 0, 3) }}</label>
+                            @endforeach
+                        </div>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field"><label for="start-time">Start</label><input id="start-time" type="time" name="working_hours_start" value="{{ old('working_hours_start', $vet->working_hours_start) }}"></div>
+                        <div class="field"><label for="end-time">End</label><input id="end-time" type="time" name="working_hours_end" value="{{ old('working_hours_end', $vet->working_hours_end) }}"></div>
+                        <div class="field full"><label for="day-off">Add a day off</label><input id="day-off" type="date" name="days_off[]" min="{{ today()->toDateString() }}"></div>
+                    </div>
+                    @if ($vet->days_off)
+                        <p class="muted">Saved days off: {{ collect($vet->days_off)->join(', ') }}</p>
+                        @foreach ($vet->days_off as $dayOff)<input type="hidden" name="days_off[]" value="{{ $dayOff }}">@endforeach
+                    @endif
+                    <button class="btn" type="submit">Save availability</button>
+                </form>
+            </section>
           </div>
+
         </div>
         @foreach ($days as $day)
           <div class="dayrow">
@@ -281,6 +402,117 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
       @endforelse
     </section>
 
+
+                    <h3 style="margin-top:24px">Record a visit</h3>
+                    <form method="POST" action="{{ route('vet.visits.store') }}" class="no-print">
+                        @csrf
+                        <input type="hidden" name="pet_id" value="{{ $selectedPatient->id }}">
+                        <div class="form-grid">
+                            <div class="field"><label for="visit-date">Visit date</label><input id="visit-date" type="date" name="visit_date" max="{{ today()->toDateString() }}" value="{{ old('visit_date', today()->toDateString()) }}" required></div>
+                            <div class="field"><label for="appointment-id">Appointment (optional)</label>
+                                <select id="appointment-id" name="appointment_id"><option value="">Not linked</option>
+                                    @foreach ($selectedPatient->appointments()->where('vet_id', $vet->id)->orderByDesc('appointment_at')->limit(20)->get() as $patientAppointment)
+                                        <option value="{{ $patientAppointment->id }}">{{ $patientAppointment->appointment_at->format('M j, Y') }} · {{ $patientAppointment->status }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="field full"><label for="visit-reason">Reason for visit</label><textarea id="visit-reason" name="reason">{{ old('reason') }}</textarea></div>
+                            <div class="field full"><label for="diagnosis">Diagnosis</label><textarea id="diagnosis" name="diagnosis">{{ old('diagnosis') }}</textarea></div>
+                            <div class="field full"><label for="treatment">Treatment and notes</label><textarea id="treatment" name="treatment">{{ old('treatment') }}</textarea></div>
+                            <div class="field"><label for="follow-up">Follow-up date</label><input id="follow-up" type="date" name="follow_up_date" min="{{ today()->toDateString() }}"></div>
+                            <div class="field"><label for="medicine">Prescription medicine</label><input id="medicine" name="prescription_medicine"></div>
+                            <div class="field"><label for="dosage">Dosage</label><input id="dosage" name="prescription_dosage"></div>
+                            <div class="field"><label for="duration">Duration</label><input id="duration" name="prescription_duration"></div>
+                            <div class="field full"><label for="instructions">Prescription instructions</label><textarea id="instructions" name="prescription_instructions"></textarea></div>
+                        </div>
+                        <button class="btn" type="submit">Save visit record</button>
+                    </form>
+                    <h3 style="margin-top:24px">Visit history</h3>
+                    @forelse ($selectedPatientVisits as $visit)
+                        <div class="record">
+                            <strong>{{ $visit->visit_date->format('M j, Y') }}</strong>
+                            @if($visit->reason)<p><strong>Reason:</strong> {{ $visit->reason }}</p>@endif
+                            @if($visit->diagnosis)<p><strong>Diagnosis:</strong> {{ $visit->diagnosis }}</p>@endif
+                            @if($visit->treatment)<p><strong>Treatment:</strong> {{ $visit->treatment }}</p>@endif
+                            @if($visit->follow_up_date)<p><strong>Follow-up:</strong> {{ $visit->follow_up_date->format('M j, Y') }}</p>@endif
+                            @if($visit->prescriptions)<p><strong>Prescription:</strong> {{ collect($visit->prescriptions)->filter()->join(' · ') }}</p>@endif
+                        </div>
+                    @empty
+                        <p class="muted">No visit records yet.</p>
+                    @endforelse
+                </div>
+
+                <div class="record" id="vaccinations">
+                    <h3>Vaccination history</h3>
+                    @forelse ($selectedPatientVaccinations as $record)
+                        <div class="record">
+                            <strong>{{ $vaccineLabels[$record->vaccine_key] ?? $record->vaccine_key }}</strong>
+                            <span class="pill">{{ $record->category }}</span>
+                            @if (!$record->next_due_date)
+                                <span class="pill">Not yet due</span>
+                            @elseif ($record->next_due_date->isBefore(today()))
+                                <span class="pill cancelled">Overdue</span>
+                            @elseif ($record->next_due_date->lessThanOrEqualTo(today()->addDays(30)))
+                                <span class="pill pending">Due soon</span>
+                            @else
+                                <span class="pill confirmed">Up to date</span>
+                            @endif
+                            <p>Given {{ $record->date_given?->format('M j, Y') }} · Next due {{ $record->next_due_date?->format('M j, Y') ?: 'Not set' }}
+                                @if($record->dose_number) · Dose {{ $record->dose_number }} @endif</p>
+                            @if($record->brand || $record->batch_number)<p class="muted">{{ $record->brand }} @if($record->batch_number) · Lot {{ $record->batch_number }} @endif</p>@endif
+                            @if($record->notes)<p>{{ $record->notes }}</p>@endif
+                            @if($record->vet_id === $vet->id)
+                                <a class="btn secondary small no-print" href="{{ route('vet.vaccinations.certificate', $record) }}" target="_blank" rel="noopener">View certificate</a>
+                            @endif
+                        </div>
+                    @empty
+                        <p class="muted">No vaccinations recorded.</p>
+                    @endforelse
+
+                    <h3 style="margin-top:22px">Log a vaccination</h3>
+                    <form method="POST" action="{{ route('vet.vaccinations.store') }}" class="no-print">
+                        @csrf
+                        <input type="hidden" name="pet_id" value="{{ $selectedPatient->id }}">
+                        <div class="form-grid">
+                            <div class="field full"><label for="vaccine-key">Vaccine</label>
+                                @if ($patientVaccineOptions)
+                                    <select id="vaccine-key" name="vaccine_key" required>
+                                        <option value="">Choose vaccine</option>
+                                        @foreach($patientVaccineOptions as $key => $name)<option value="{{ $key }}">{{ $name }}</option>@endforeach
+                                        <option value="other">Other / custom vaccine</option>
+                                    </select>
+                                    <input id="custom-vaccine-name" name="vaccine_name" maxlength="100" placeholder="Enter vaccine name" style="display:none;margin-top:8px">
+                                @else
+                                    <input id="vaccine-key" name="vaccine_key" maxlength="100" placeholder="Enter vaccine name" required>
+                                @endif
+                            </div>
+                            <div class="field"><label for="vaccine-category">Category</label><select id="vaccine-category" name="category" required><option>Core</option><option>Non-core (Lifestyle)</option></select></div>
+                            <div class="field"><label for="dose-number">Dose number</label><input id="dose-number" name="dose_number" placeholder="1st, 2nd, booster"></div>
+                            <div class="field"><label for="date-given">Date given</label><input id="date-given" type="date" name="date_given" max="{{ today()->toDateString() }}" required></div>
+                            <div class="field"><label for="next-due">Next due date</label><input id="next-due" type="date" name="next_due_date" required></div>
+                            <div class="field"><label for="brand">Brand</label><input id="brand" name="brand"></div>
+                            <div class="field"><label for="batch-number">Batch / lot number</label><input id="batch-number" name="batch_number"></div>
+                            <div class="field full"><label for="vaccine-notes">Notes</label><textarea id="vaccine-notes" name="notes"></textarea></div>
+                        </div>
+                        <button class="btn" type="submit">Save vaccination record</button>
+                    </form>
+                </div>
+            @endif
+        </section>
+
+        <section class="panel" aria-label="Notifications">
+            <h2>Notifications</h2>
+            @forelse ($notifications as $notification)
+                <div class="record">
+                    <strong>{{ $notification->status === 'pending' ? 'New booking' : ($notification->status === 'cancelled' ? 'Appointment cancelled or declined' : 'Upcoming appointment') }}</strong>
+                    <p>{{ $notification->pet?->pet_name }} · {{ $notification->appointment_at?->format('M j, Y g:i A') }} · {{ $notification->service_type }}</p>
+                </div>
+            @empty
+                <p class="muted">No new bookings or appointments coming up.</p>
+            @endforelse
+        </section>
+    </main>
+
     {{-- NOTIFICATIONS --}}
     <section class="card">
       <h2>Notifications</h2>
@@ -296,6 +528,7 @@ dialog::backdrop{background:rgba(15,33,55,.45)}
       @endif
     </section>
   </main>
+
 </div>
 
 {{-- ONE RECORD DIALOG PER PATIENT: full history + add forms --}}

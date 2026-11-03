@@ -95,6 +95,11 @@ dialog h2{font-size:18px}
     $chosenService = old('service', in_array($prefill['service'] ?? null, $services, true) ? $prefill['service'] : $services[0]);
     $chosenVaccines = old('vaccines', $prefill['vaccines'] ?? []);
 
+
+    <main class="page">
+        <h1>Welcome back, {{ $petOwner->first_name }}!</h1>
+        <p class="intro">Keep your pet's details close and book a visit whenever they need care.</p>
+
     $ageText = null;
     if ($selected && $selected->birth_date) {
         $ageText = $selected->birth_date->age >= 1
@@ -126,8 +131,75 @@ dialog h2{font-size:18px}
     <div class="flash err"><ul>@foreach ($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
   @endif
 
+
+            <div class="side-stack">
+                <section class="card section-card" id="request-appointment">
+                    <div class="section-heading">
+                        <div class="section-icon" aria-hidden="true">＋</div>
+                        <div>
+                            <h2>Book appointment</h2>
+                            <p>Choose a service and preferred time for {{ $pet->pet_name ?: 'your pet' }}.</p>
+                        </div>
+                    </div>
+                    <form method="POST" action="{{ route('owner.appointments.store') }}">
+                        @csrf
+                        <input type="hidden" name="pet_id" value="{{ $pet->id }}">
+                        <div class="field">
+                            <label for="service_type">Service type</label>
+                            <select id="service_type" name="service_type" required>
+                                <option value="Check-up / Consultation" {{ old('service_type', request('service_type', 'Check-up / Consultation')) === 'Check-up / Consultation' ? 'selected' : '' }}>Check-up / Consultation</option>
+                                <option value="Vaccination" {{ old('service_type', request('service_type')) === 'Vaccination' ? 'selected' : '' }}>Vaccination</option>
+                                <option value="Grooming" {{ old('service_type', request('service_type')) === 'Grooming' ? 'selected' : '' }}>Grooming</option>
+                            </select>
+                        </div>
+                        <div class="field" id="vet-field">
+                            <label for="vet_id">Veterinarian</label>
+                            <select id="vet_id" name="vet_id">
+                                <option value="">Any available veterinarian</option>
+                                @foreach ($vets as $vet)
+                                    <option value="{{ $vet->id }}" {{ old('vet_id') == $vet->id ? 'selected' : '' }}>
+                                        Dr. {{ $vet->first_name }} {{ $vet->last_name }}{{ $vet->specialty ? ' · '.ucfirst($vet->specialty).' specialist' : '' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="field" id="groomer-field" hidden>
+                            <label for="groomer_id">Groomer</label>
+                            <select id="groomer_id" name="groomer_id" disabled>
+                                <option value="">Any available groomer</option>
+                                @foreach ($groomers as $groomer)
+                                    <option value="{{ $groomer->id }}" {{ old('groomer_id') == $groomer->id ? 'selected' : '' }}>
+                                        {{ $groomer->first_name }} {{ $groomer->last_name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <fieldset class="grooming-fields" id="grooming-fields" hidden disabled>
+                            <legend>Grooming options</legend>
+                            <div class="field">
+                                <label>Add-ons</label>
+                                <div class="grooming-addons">
+                                    @foreach ([
+                                        'nail_trimming' => 'Nail trimming',
+                                        'ear_cleaning' => 'Ear cleaning',
+                                        'teeth_brushing' => 'Teeth brushing',
+                                        'anal_gland_expression' => 'Anal gland expression',
+                                        'flea_tick_treatment' => 'Flea & tick treatment',
+                                        'de_shedding' => 'De-shedding treatment',
+                                        'medicated_shampoo' => 'Medicated or special shampoo (sensitive skin)',
+                                        'perfume_bow_bandana' => 'Perfume / bow / bandana',
+                                    ] as $addon => $addonLabel)
+                                        <label class="grooming-addon">
+                                            <input type="checkbox" name="grooming_addons[]" value="{{ $addon }}" {{ in_array($addon, old('grooming_addons', []), true) ? 'checked' : '' }}>
+                                            <span>{{ $addonLabel }}</span>
+                                        </label>
+                                    @endforeach
+                                </div>
+                            </div>
+=======
   <div class="layout">
     <div class="col">
+
 
       {{-- PET CARD --}}
       @if ($selected)
@@ -140,6 +212,150 @@ dialog h2{font-size:18px}
             <div class="pname">{{ $selected->name }}</div>
             <div class="ptype">{{ $selected->type }}@if ($selected->breed) · {{ $selected->breed }}@endif</div>
           </div>
+
+
+                            <div class="field">
+                                <label>Vaccination status from the pet's records</label>
+                                <div class="grooming-vaccines">
+                                    @foreach ($groomingVaccines as $vaccineName => $vaccineStatus)
+                                        <div class="grooming-vaccine-status">
+                                            <span>{{ ucfirst($vaccineName) }}{{ $vaccineStatus['record']?->next_due_date ? ' · due '.$vaccineStatus['record']->next_due_date->format('M j, Y') : '' }}</span>
+                                            <span class="vaccination-status {{ $vaccineStatus['status'] }}">
+                                                {{ ['up_to_date' => 'Up to date', 'due_soon' => 'Due soon', 'overdue' => 'Overdue', 'not_yet_given' => 'Not recorded'][$vaccineStatus['status']] }}
+                                            </span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                                <p class="help">Groomers may require current rabies vaccination and, for dogs, may request Bordetella records. Please confirm their requirements.</p>
+                            </div>
+                        </fieldset>
+                        @if ($vaccineOptions)
+                            @php($selectedVaccines = old('vaccines', request()->filled('vaccine') ? [request('vaccine')] : []))
+                            <fieldset class="vaccine-fieldset" id="vaccines-field" hidden disabled>
+                                <legend>{{ ucfirst($pet->pet_type) }} vaccines</legend>
+                                <p class="vaccine-note">Select all vaccines you'd like to discuss for your pet. Your veterinarian will confirm which are appropriate and when they are due.</p>
+                                <div class="vaccine-list">
+                                    @if (strtolower($pet->pet_type) === 'cat')
+                                        <label class="vaccine-option" for="vaccine-cat_fvrcp">
+                                            <input id="vaccine-cat_fvrcp" type="checkbox" name="vaccines[]" value="cat_fvrcp" {{ in_array('cat_fvrcp', $selectedVaccines, true) ? 'checked' : '' }}>
+                                            <span class="vaccine-copy">
+                                                <span class="vaccine-name">{{ $vaccineOptions['cat_fvrcp'][0] }}</span>
+                                                <span class="vaccine-description">{{ $vaccineOptions['cat_fvrcp'][1] }}</span>
+                                            </span>
+                                        </label>
+                                        <div class="vaccine-suboptions" id="fvrcp-components">
+                                            @foreach (['cat_rhinotracheitis', 'cat_calicivirus', 'cat_panleukopenia'] as $vaccineId)
+                                                <label class="vaccine-option" for="vaccine-{{ $vaccineId }}">
+                                                    <input id="vaccine-{{ $vaccineId }}" type="checkbox" name="vaccines[]" value="{{ $vaccineId }}" {{ in_array($vaccineId, $selectedVaccines, true) ? 'checked' : '' }}>
+                                                    <span class="vaccine-copy">
+                                                        <span class="vaccine-name">{{ $vaccineOptions[$vaccineId][0] }}</span>
+                                                        <span class="vaccine-description">{{ $vaccineOptions[$vaccineId][1] }}</span>
+                                                    </span>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        @foreach ($vaccineOptions as $vaccineId => $vaccine)
+                                            @if (! in_array($vaccineId, ['cat_fvrcp', 'cat_rhinotracheitis', 'cat_calicivirus', 'cat_panleukopenia'], true))
+                                                <label class="vaccine-option" for="vaccine-{{ $vaccineId }}">
+                                                    <input id="vaccine-{{ $vaccineId }}" type="checkbox" name="vaccines[]" value="{{ $vaccineId }}" {{ in_array($vaccineId, $selectedVaccines, true) ? 'checked' : '' }}>
+                                                    <span class="vaccine-copy">
+                                                        <span class="vaccine-name">{{ $vaccine[0] }}</span>
+                                                        <span class="vaccine-description">{{ $vaccine[1] }}</span>
+                                                    </span>
+                                                </label>
+                                            @endif
+                                        @endforeach
+                                    @else
+                                        @foreach ($vaccineOptions as $vaccineId => $vaccine)
+                                            <label class="vaccine-option" for="vaccine-{{ $vaccineId }}">
+                                                <input id="vaccine-{{ $vaccineId }}" type="checkbox" name="vaccines[]" value="{{ $vaccineId }}" {{ in_array($vaccineId, $selectedVaccines, true) ? 'checked' : '' }}>
+                                                <span class="vaccine-copy">
+                                                    <span class="vaccine-name">{{ $vaccine[0] }}</span>
+                                                    <span class="vaccine-description">{{ $vaccine[1] }}</span>
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    @endif
+                                </div>
+                            </fieldset>
+                        @endif
+                        <div class="field">
+                            <label for="appointment_at">Preferred date and time</label>
+                            <input id="appointment_at" name="appointment_at" type="datetime-local" min="{{ now()->addHour()->format('Y-m-d\TH:i') }}" value="{{ old('appointment_at') }}" required>
+                        </div>
+                        <div class="field">
+                            <label for="reason">What does your pet need? <span style="font-weight:400;">(optional)</span></label>
+                            <textarea id="reason" name="reason" maxlength="1000" placeholder="Anything you'd like the vet or groomer to know...">{{ old('reason') }}</textarea>
+                        </div>
+                        @if ($vets->isEmpty() && $groomers->isEmpty())
+                            <p class="help">No staff are listed yet. You can still request service from any available staff member.</p>
+                        @endif
+                        <button class="btn btn-full" type="submit">Book appointment</button>
+                    </form>
+                </section>
+
+                <section class="card section-card">
+                    <div class="section-heading">
+                        <div class="section-icon" aria-hidden="true">♡</div>
+                        <div>
+                            <h2>My appointments</h2>
+                            <p>Keep track of your upcoming visits.</p>
+                        </div>
+                    </div>
+                    @if ($appointments->isEmpty())
+                        <p class="empty-state">You don't have any appointments yet. Use the form above to get started.</p>
+                    @else
+                        <div class="appointment-list">
+                            @foreach ($appointments as $appointment)
+                                <article class="appointment-item">
+                                    <div class="appointment-row">
+                                        <div class="appointment-date">{{ $appointment->appointment_at->format('M j, Y · g:i A') }}</div>
+                                        <span class="badge">{{ ucfirst($appointment->status) }}</span>
+                                    </div>
+                                    <div class="appointment-vet">{{ $appointment->service_type }}</div>
+                                    @if ($appointment->pet)
+                                        <div class="appointment-vet">For {{ $appointment->pet->pet_name ?: 'your pet' }}</div>
+                                    @endif
+                                    <div class="appointment-vet">
+                                        @if ($appointment->service_type === 'Grooming')
+                                            {{ $appointment->groomer ? $appointment->groomer->first_name.' '.$appointment->groomer->last_name : 'Any available groomer' }}
+                                        @else
+                                            {{ $appointment->vet ? 'Dr. '.$appointment->vet->first_name.' '.$appointment->vet->last_name : 'Any available veterinarian' }}
+                                        @endif
+                                    </div>
+                                    @if ($appointment->reason)
+                                        <div class="appointment-reason">{{ $appointment->reason }}</div>
+                                    @endif
+                                    @if ($appointment->vaccines)
+                                        <div class="appointment-reason">
+                                            Vaccines requested: {{ collect($appointment->vaccines)->map(fn ($vaccine) => $vaccineLabels[$vaccine] ?? $vaccine)->join(', ') }}
+                                        </div>
+                                    @endif
+                                    @if ($appointment->service_type === 'Grooming')
+                                        @if ($appointment->grooming_addons)
+                                            <div class="appointment-reason">Grooming add-ons: {{ collect($appointment->grooming_addons)->map(fn ($addon) => ucwords(str_replace('_', ' ', $addon)))->join(', ') }}</div>
+                                        @endif
+                                        @php($groomingPreferences = array_filter([
+                                            'Haircut' => $appointment->haircut_style,
+                                            'Shampoo' => $appointment->shampoo_type,
+                                            'Fur matted' => is_null($appointment->fur_matted) ? null : ($appointment->fur_matted ? 'Yes' : 'No'),
+                                            'Size' => $appointment->pet_size,
+                                            'Coat' => $appointment->coat_type,
+                                            'Temperament' => $appointment->temperament,
+                                            'Allergies / skin problems' => $appointment->allergies_or_skin_problems,
+                                        ]))
+                                        @if ($groomingPreferences)
+                                            <div class="appointment-reason">
+                                                {{ collect($groomingPreferences)->map(fn ($value, $label) => $label.': '.$value)->join(' · ') }}
+                                            </div>
+                                        @endif
+                                    @endif
+                                </article>
+                            @endforeach
+                        </div>
+                    @endif
+                </section>
+            </div>
 
           <form method="POST" action="{{ route('owner.pets.photo', $selected) }}" enctype="multipart/form-data">
             @csrf
@@ -155,6 +371,7 @@ dialog h2{font-size:18px}
             </label>
             <button class="btn" type="submit">View pet</button>
           </form>
+
         </div>
 
         <div class="tiles">
@@ -169,6 +386,56 @@ dialog h2{font-size:18px}
             @endif
           </div>
         </div>
+
+
+                <div class="vaccination-summary">
+                    <div class="vaccination-summary-copy">
+                        <strong>{{ $vaccinationSummary['coreUpToDate'] }} of {{ $vaccinationSummary['coreTotal'] }} core vaccines up to date</strong>
+                        @if ($vaccinationSummary['nextDueRecord'])
+                            <span>Next due: {{ $vaccineLabels[$vaccinationSummary['nextDueRecord']->vaccine_key] ?? $vaccinationSummary['nextDueRecord']->vaccine_key }} · {{ $vaccinationSummary['nextDueRecord']->next_due_date->format('M j, Y') }}</span>
+                        @else
+                            <span>No upcoming due date is recorded.</span>
+                        @endif
+                    </div>
+                    @if ($vaccinationRequestKey)
+                        <a class="btn" href="{{ route('owner.dashboard', ['pet_id' => $pet->id, 'service_type' => 'Vaccination', 'vaccine' => $vaccinationRequestKey]) }}#request-appointment">Book vaccination</a>
+                    @endif
+                </div>
+
+                <div class="vaccination-list">
+                    @foreach ($vaccinationRows as $vaccinationRow)
+                        @php($record = $vaccinationRow['record'])
+                        @php($vaccineKey = $vaccinationRow['vaccine_key'])
+                        @php($status = $vaccinationRow['status'])
+                        <article class="vaccination-item">
+                            <div>
+                                <div class="vaccination-item-heading">
+                                    <strong>{{ $vaccineLabels[$vaccineKey] ?? $vaccineKey }}</strong>
+                                    <span class="vaccination-category">{{ $vaccineCategories[$vaccineKey] ?? 'Non-core (Lifestyle)' }}</span>
+                                </div>
+                            </div>
+                            <span class="vaccination-status {{ $status }}">
+                                {{ ['up_to_date' => 'Up to date', 'due_soon' => 'Due soon', 'overdue' => 'Overdue', 'not_yet_given' => 'Not yet given'][$status] }}
+                            </span>
+                            <div class="vaccination-details">
+                                <div class="vaccination-detail"><strong>Date given</strong>{{ $record?->date_given?->format('M j, Y') ?? 'Not recorded' }}</div>
+                                <div class="vaccination-detail"><strong>Next due date</strong>{{ $record?->next_due_date?->format('M j, Y') ?? 'Not set' }}</div>
+                                <div class="vaccination-detail"><strong>Veterinarian</strong>{{ $record?->veterinarian_name ?: 'Not recorded' }}</div>
+                                <div class="vaccination-detail"><strong>Dose number</strong>{{ $record?->dose_number ?: 'Not recorded' }}</div>
+                                @if ($record)
+                                    <div class="vaccination-detail"><strong>Brand</strong>{{ $record->brand ?: 'Not recorded' }}</div>
+                                    <div class="vaccination-detail"><strong>Batch / lot number</strong>{{ $record->batch_number ?: 'Not recorded' }}</div>
+                                @endif
+                            </div>
+                            @if ($record?->notes)
+                                <p class="vaccination-notes"><strong>Notes:</strong> {{ $record->notes }}</p>
+                            @endif
+                            @if ($status !== 'up_to_date')
+                                <a class="vaccination-request-link" href="{{ route('owner.dashboard', ['pet_id' => $pet->id, 'service_type' => 'Vaccination', 'vaccine' => $vaccineKey]) }}#request-appointment">Book this vaccination</a>
+                            @endif
+                        </article>
+                    @endforeach
+                </div>
 
         <div class="mini">
           <button type="button" class="link" onclick="document.getElementById('birthForm').hidden = !document.getElementById('birthForm').hidden">✎ {{ $selected->birth_date ? 'Edit birthdate' : 'Add birthdate' }}</button>
@@ -190,6 +457,7 @@ dialog h2{font-size:18px}
           <button class="btn" type="submit">Save date</button>
         </form>
       </section>
+
 
       {{-- VACCINATION RECORDS --}}
       <section class="card" id="vaccinations">

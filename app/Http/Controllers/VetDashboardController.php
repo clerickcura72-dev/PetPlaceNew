@@ -104,10 +104,86 @@ class VetDashboardController extends Controller
             ->limit(8)
             ->get();
 
+
+        return view('vet.dashboard', [
+            'vet' => $vet,
+            'todayAppointments' => $todayAppointments,
+            'pendingCount' => $pendingRequests->count(),
+            'patientsSeenThisWeek' => $patientsSeenThisWeek,
+            'vaccinationsDueSoon' => $vaccinationsDueSoon,
+            'pendingRequests' => $pendingRequests,
+            'calendarAppointments' => $calendarAppointments,
+            'recentAppointments' => $recentAppointments,
+            'weekStart' => $weekStart,
+            'weekEnd' => $weekEnd,
+            'patients' => $patients,
+            'selectedPatient' => $selectedPatient,
+            'selectedPatientVisits' => $selectedPatientVisits,
+            'selectedPatientVaccinations' => $selectedPatientVaccinations,
+            'patientVaccineOptions' => self::VACCINE_OPTIONS[strtolower($selectedPatient?->pet_type ?? '')] ?? [],
+            'vaccineLabels' => collect(self::VACCINE_OPTIONS)
+                ->flatMap(fn (array $options) => $options)
+                ->all(),
+            'notifications' => $notifications,
+            'weekDays' => $calendarView === 'day'
+                ? collect([$calendarDate->copy()])
+                : collect(range(0, 6))->map(fn (int $offset) => $weekStart->copy()->addDays($offset)),
+            'calendarView' => $calendarView,
+            'calendarDate' => $calendarDate,
+            'search' => $request->input('search'),
+        ]);
+    }
+
+    public function updateAppointment(Request $request, Appointment $appointment): RedirectResponse
+    {
+        $vet = $this->authenticatedVeterinarian($request);
+        abort_unless($appointment->service_type !== 'Grooming', 404);
+
+        $validated = $request->validate([
+            'action' => ['required', Rule::in(['accept', 'decline', 'reschedule', 'complete'])],
+            'decision_reason' => ['required_if:action,decline,reschedule', 'nullable', 'string', 'max:1000'],
+            'appointment_at' => ['required_if:action,reschedule', 'nullable', 'date', 'after:now'],
+        ]);
+        if ($validated['action'] === 'complete') {
+            abort_unless($appointment->vet_id === $vet->id && $appointment->status === 'confirmed', 404);
+        } else {
+            abort_unless(
+                $appointment->status === 'pending'
+                && ($appointment->vet_id === null || $appointment->vet_id === $vet->id),
+                404
+            );
+        }
+        if ($validated['action'] === 'accept') {
+            $this->assertAvailable($vet, $appointment->appointment_at);
+        }
+
+        if ($validated['action'] === 'accept') {
+            $appointment->status = 'confirmed';
+            $appointment->vet_id = $vet->id;
+            $appointment->decision_reason = null;
+        } elseif ($validated['action'] === 'decline') {
+            $appointment->status = 'cancelled';
+            $appointment->vet_id = $vet->id;
+            $appointment->decision_reason = $validated['decision_reason'];
+        } elseif ($validated['action'] === 'reschedule') {
+            $this->assertAvailable($vet, Carbon::parse($validated['appointment_at']));
+            $appointment->status = 'confirmed';
+            $appointment->vet_id = $vet->id;
+            $appointment->appointment_at = $validated['appointment_at'];
+            $appointment->decision_reason = $validated['decision_reason'];
+        } else {
+            abort_unless($appointment->vet_id === $vet->id && $appointment->status === 'confirmed', 404);
+            $appointment->status = 'completed';
+        }
+
+        $appointment->save();
+
+        return back()->with('status', 'Booking updated.');
         return view('vet.dashboard', compact(
             'vet', 'requests', 'upcoming', 'patients', 'stats', 'days', 'calendarView',
             'anchor', 'from', 'to', 'search', 'recent', 'dueVaccines'
         ));
+
     }
 
     public function saveAvailability(Request $request): RedirectResponse
