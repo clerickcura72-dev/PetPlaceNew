@@ -172,13 +172,6 @@ select{cursor:pointer;}
       </div>
 
       <div class="form-group">
-        <label for="date_of_birth">Date of Birth</label>
-        <input type="date" id="date_of_birth" name="date_of_birth" max="{{ today()->toDateString() }}"
-               value="{{ old('date_of_birth') }}" required/>
-        @error('date_of_birth')<div class="field-error">{{ $message }}</div>@enderror
-      </div>
-
-      <div class="form-group">
         <label>Phone Number</label>
         <input type="tel" name="phone" placeholder="e.g. 09123456789"
                value="{{ old('phone') }}"/>
@@ -194,29 +187,13 @@ select{cursor:pointer;}
         </div>
         <div class="form-group">
           <label>Pet Type</label>
-          <select name="pet_type" id="pet_type">
+          <select name="pet_type">
             <option value="">Select type</option>
             <option value="dog" {{ old('pet_type') == 'dog' ? 'selected' : '' }}>🐶 Dog</option>
             <option value="cat" {{ old('pet_type') == 'cat' ? 'selected' : '' }}>🐱 Cat</option>
-            <option value="rabbit" {{ old('pet_type') == 'rabbit' ? 'selected' : '' }}>🐰 Rabbit</option>
-            <option value="fish" {{ old('pet_type') == 'fish' ? 'selected' : '' }}>🐟 Fish</option>
-            <option value="bird" {{ old('pet_type') == 'bird' ? 'selected' : '' }}>🐦 Bird</option>
-            <option value="reptile" {{ old('pet_type') == 'reptile' ? 'selected' : '' }}>🦎 Reptile</option>
             <option value="other" {{ old('pet_type') == 'other' ? 'selected' : '' }}>Other</option>
           </select>
         </div>
-      </div>
-      <div class="form-group">
-        <label for="pet_birthdate">Pet Birthdate <span style="font-weight:400;">(optional)</span></label>
-        <input type="date" id="pet_birthdate" name="pet_birthdate" max="{{ today()->toDateString() }}"
-               value="{{ old('pet_birthdate') }}"/>
-        @error('pet_birthdate')<div class="field-error">{{ $message }}</div>@enderror
-      </div>
-      <div class="form-group" id="otherPetTypeField" @if (old('pet_type') !== 'other') hidden @endif>
-        <label for="pet_type_other">What kind of animal?</label>
-        <input type="text" id="pet_type_other" name="pet_type_other" placeholder="e.g. Hamster"
-               value="{{ old('pet_type_other') }}"/>
-        @error('pet_type_other')<div class="field-error">{{ $message }}</div>@enderror
       </div>
       <div class="pet-hint">You can add more pets after registration.</div>
 
@@ -258,20 +235,6 @@ function togglePw(fieldId, btnId) {
   f.type = f.type === 'password' ? 'text' : 'password';
   b.textContent = f.type === 'password' ? '👁' : '🙈';
 }
-
-const petTypeSelect = document.getElementById('pet_type');
-const otherPetTypeField = document.getElementById('otherPetTypeField');
-const otherPetTypeInput = document.getElementById('pet_type_other');
-
-function toggleOtherPetType() {
-  const isOther = petTypeSelect.value === 'other';
-  otherPetTypeField.hidden = !isOther;
-  otherPetTypeInput.required = isOther;
-  otherPetTypeInput.disabled = !isOther;
-}
-
-petTypeSelect.addEventListener('change', toggleOtherPetType);
-toggleOtherPetType();
 </script>
 </body>
 </html>

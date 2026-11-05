@@ -10,25 +10,28 @@ class Pet extends Model
 {
     protected $fillable = [
         'pet_owner_id',
-        'pet_name',
-        'pet_type',
-        'pet_birthdate',
-        'pet_photo_path',
+        'name',
+        'type',
         'breed',
-        'weight',
-        'allergies',
+        'sex',
+        'birth_date',
+        'notes',
+        'photo_path',
     ];
 
     protected function casts(): array
     {
-        return [
-            'pet_birthdate' => 'date',
-        ];
+        return ['birth_date' => 'date'];
     }
 
-    public function petOwner(): BelongsTo
+    public function getPhotoUrlAttribute(): ?string
     {
-        return $this->belongsTo(PetOwner::class);
+        return $this->photo_path ? asset('storage/' . $this->photo_path) : null;
+    }
+
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(PetOwner::class, 'pet_owner_id');
     }
 
     public function appointments(): HasMany
@@ -36,13 +39,13 @@ class Pet extends Model
         return $this->hasMany(Appointment::class);
     }
 
-    public function vaccinationRecords(): HasMany
-    {
-        return $this->hasMany(VaccinationRecord::class);
-    }
-
     public function visitRecords(): HasMany
     {
         return $this->hasMany(VisitRecord::class);
+    }
+
+    public function vaccinationRecords(): HasMany
+    {
+        return $this->hasMany(VaccinationRecord::class);
     }
 }
