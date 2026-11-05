@@ -216,11 +216,7 @@
 
     <main class="page">
         <h1>Welcome back, {{ $petOwner->first_name }}!</h1>
-<<<<<<< HEAD
         <p class="intro">Keep your pet's details close and book a visit whenever they need care.</p>
-=======
-        <p class="intro">Keep your pet's details close and request a visit whenever they need care.</p>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
 
         @if (session('status'))
             <div class="alert" role="status">{{ session('status') }}</div>
@@ -327,11 +323,7 @@
                     <div class="section-heading">
                         <div class="section-icon" aria-hidden="true">＋</div>
                         <div>
-<<<<<<< HEAD
                             <h2>Book appointment</h2>
-=======
-                            <h2>Request an appointment</h2>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
                             <p>Choose a service and preferred time for {{ $pet->pet_name ?: 'your pet' }}.</p>
                         </div>
                     </div>
@@ -527,11 +519,7 @@
                         @if ($vets->isEmpty() && $groomers->isEmpty())
                             <p class="help">No staff are listed yet. You can still request service from any available staff member.</p>
                         @endif
-<<<<<<< HEAD
                         <button class="btn btn-full" type="submit">Book appointment</button>
-=======
-                        <button class="btn btn-full" type="submit">Request appointment</button>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
                     </form>
                 </section>
 
@@ -539,20 +527,12 @@
                     <div class="section-heading">
                         <div class="section-icon" aria-hidden="true">♡</div>
                         <div>
-<<<<<<< HEAD
                             <h2>My appointments</h2>
-=======
-                            <h2>Appointment requests</h2>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
                             <p>Keep track of your upcoming visits.</p>
                         </div>
                     </div>
                     @if ($appointments->isEmpty())
-<<<<<<< HEAD
                         <p class="empty-state">You don't have any appointments yet. Use the form above to get started.</p>
-=======
-                        <p class="empty-state">You don't have any appointment requests yet. Use the form above to get started.</p>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
                     @else
                         <div class="appointment-list">
                             @foreach ($appointments as $appointment)
@@ -627,11 +607,7 @@
                         @endif
                     </div>
                     @if ($vaccinationRequestKey)
-<<<<<<< HEAD
                         <a class="btn" href="{{ route('owner.dashboard', ['pet_id' => $pet->id, 'service_type' => 'Vaccination', 'vaccine' => $vaccinationRequestKey]) }}#request-appointment">Book vaccination</a>
-=======
-                        <a class="btn" href="{{ route('owner.dashboard', ['pet_id' => $pet->id, 'service_type' => 'Vaccination', 'vaccine' => $vaccinationRequestKey]) }}#request-appointment">Request vaccination</a>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
                     @endif
                 </div>
 
@@ -664,11 +640,7 @@
                                 <p class="vaccination-notes"><strong>Notes:</strong> {{ $record->notes }}</p>
                             @endif
                             @if ($status !== 'up_to_date')
-<<<<<<< HEAD
                                 <a class="vaccination-request-link" href="{{ route('owner.dashboard', ['pet_id' => $pet->id, 'service_type' => 'Vaccination', 'vaccine' => $vaccineKey]) }}#request-appointment">Book this vaccination</a>
-=======
-                                <a class="vaccination-request-link" href="{{ route('owner.dashboard', ['pet_id' => $pet->id, 'service_type' => 'Vaccination', 'vaccine' => $vaccineKey]) }}#request-appointment">Request this vaccination</a>
->>>>>>> 6eea849605ba52a41dae1295dd81ec536f9c3f7c
                             @endif
                         </article>
                     @endforeach

@@ -248,7 +248,6 @@ body{
       <li>Provide veterinary care</li>
       <li>Offer grooming services</li>
       <li>Manage pending bookings</li>
-      <li>Manage appointment requests</li>
     </ul>
     <div class="card-arrow">Get Started →</div>
   </a>
