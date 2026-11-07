@@ -15,12 +15,17 @@ class VisitRecord extends Model
         'reason',
         'diagnosis',
         'treatment',
-        'notes',
+        'prescriptions',
+        'follow_up_date',
     ];
 
     protected function casts(): array
     {
-        return ['visit_date' => 'date'];
+        return [
+            'visit_date' => 'date',
+            'follow_up_date' => 'date',
+            'prescriptions' => 'array',
+        ];
     }
 
     public function pet(): BelongsTo
@@ -28,9 +33,9 @@ class VisitRecord extends Model
         return $this->belongsTo(Pet::class);
     }
 
-    public function vet(): BelongsTo
+    public function veterinarian(): BelongsTo
     {
-        return $this->belongsTo(Vet::class);
+        return $this->belongsTo(Vet::class, 'vet_id');
     }
 
     public function appointment(): BelongsTo

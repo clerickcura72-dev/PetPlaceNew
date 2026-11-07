@@ -1,21 +1,21 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Admin\StaffApprovalController;
 use App\Http\Controllers\OwnerDashboardController;
 use App\Http\Controllers\VetDashboardController;
+use App\Http\Controllers\Admin\StaffApprovalController;
 
-// ── HOME ──────────────────────────────────────────────────
+// HOME
 Route::get('/', function () {
     return view('welcome');
 });
 
-// ── CHOOSE ACCOUNT ────────────────────────────────────────
+// CHOOSE ACCOUNT
 Route::get('/choose', function () {
     return view('choose');
 })->name('choose');
 
-// ── VET AUTH ──────────────────────────────────────────────
+// VET AUTH
 Route::get('/login/vet', function () {
     return view('auth.login-vet');
 })->name('login.vet');
@@ -24,7 +24,7 @@ Route::get('/register/vet', function () {
     return view('auth.register-vet');
 })->name('register.vet');
 
-// ── OWNER AUTH ────────────────────────────────────────────
+// OWNER AUTH
 Route::get('/login/owner', function () {
     return view('auth.login-owner');
 })->name('login.owner');
@@ -33,73 +33,144 @@ Route::get('/register/owner', function () {
     return view('auth.register-owner');
 })->name('register.owner');
 
-// ── PROTECTED ROUTES ──────────────────────────────────────
+// PROTECTED DASHBOARDS
 Route::middleware(['auth'])->group(function () {
 
-    // Sends each user to their own dashboard
+    // GENERAL DASHBOARD REDIRECT
     Route::get('/dashboard', function () {
-        return redirect()->route(auth()->user()->dashboardRouteName());
+        return redirect()->route(
+            auth()->user()->dashboardRouteName()
+        );
     })->name('dashboard');
 
-    // Profile routes (required by Breeze navigation)
-    Route::get('/profile', [App\Http\Controllers\ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [App\Http\Controllers\ProfileController::class, 'destroy'])->name('profile.destroy');
+    // PROFILE
+    Route::get('/profile', [
+        App\Http\Controllers\ProfileController::class,
+        'edit'
+    ])->name('profile.edit');
 
-    // Admin
+    Route::patch('/profile', [
+        App\Http\Controllers\ProfileController::class,
+        'update'
+    ])->name('profile.update');
+
+    Route::delete('/profile', [
+        App\Http\Controllers\ProfileController::class,
+        'destroy'
+    ])->name('profile.destroy');
+
+    // ADMIN DASHBOARD
     Route::get('/admin/dashboard', function () {
         abort_unless(auth()->user()->isAdmin(), 403);
+
         return view('admin.dashboard');
     })->name('admin.dashboard');
 
-    Route::get('/admin/staff-applications', [StaffApprovalController::class, 'index'])
-        ->name('admin.staff-applications');
+    // ADMIN STAFF APPROVAL
+    Route::get('/admin/staff-applications', [
+        StaffApprovalController::class,
+        'index'
+    ])->name('admin.staff-applications');
 
-    Route::patch('/admin/staff-applications/{vet}/approve', [StaffApprovalController::class, 'approve'])
-        ->name('admin.staff-approve');
+    Route::patch('/admin/staff-applications/{vet}/approve', [
+        StaffApprovalController::class,
+        'approve'
+    ])->name('admin.staff-approve');
 
-    Route::patch('/admin/staff-applications/{vet}/reject', [StaffApprovalController::class, 'reject'])
-        ->name('admin.staff-reject');
+    Route::patch('/admin/staff-applications/{vet}/reject', [
+        StaffApprovalController::class,
+        'reject'
+    ])->name('admin.staff-reject');
 
-    // Vet dashboard
-    Route::get('/vet/dashboard', [VetDashboardController::class, 'show'])
-        ->name('vet.dashboard');
+    // VET DASHBOARD
+    Route::get('/vet/dashboard', [
+        VetDashboardController::class,
+        'show'
+    ])->name('vet.dashboard');
 
-    Route::patch('/vet/availability', [VetDashboardController::class, 'saveAvailability'])
-        ->name('vet.availability.update');
+    Route::patch('/vet/appointments/{appointment}', [
+        VetDashboardController::class,
+        'updateAppointment'
+    ])->name('vet.appointments.update');
 
-    Route::patch('/vet/appointments/{appointment}/respond', [VetDashboardController::class, 'respond'])
-        ->name('vet.appointments.respond');
+    Route::put('/vet/availability', [
+        VetDashboardController::class,
+        'saveAvailability'
+    ])->name('vet.availability.update');
 
-    Route::post('/vet/patients/{pet}/visits', [VetDashboardController::class, 'storeVisit'])
-        ->name('vet.visits.store');
+    Route::post('/vet/visits', [
+        VetDashboardController::class,
+        'storeVisit'
+    ])->name('vet.visits.store');
 
-    Route::post('/vet/patients/{pet}/vaccinations', [VetDashboardController::class, 'storeVaccination'])
-        ->name('vet.vaccinations.store');
+    Route::put('/vet/patients/{pet}', [
+        VetDashboardController::class,
+        'updatePatient'
+    ])->name('vet.patients.update');
 
-    // Owner dashboard
-    Route::get('/owner/dashboard', [OwnerDashboardController::class, 'show'])
-        ->name('owner.dashboard');
+    Route::post('/vet/vaccinations', [
+        VetDashboardController::class,
+        'storeVaccination'
+    ])->name('vet.vaccinations.store');
 
-    Route::post('/owner/pets', [OwnerDashboardController::class, 'storePet'])
-        ->name('owner.pets.store');
+    Route::get('/vet/vaccinations/{vaccinationRecord}/certificate', [
+        VetDashboardController::class,
+        'certificate'
+    ])->name('vet.vaccinations.certificate');
 
-    Route::patch('/owner/pets/{pet}', [OwnerDashboardController::class, 'updatePet'])
-        ->name('owner.pets.update');
+    // GROOMER DASHBOARD
+    Route::get('/groomer/dashboard', [
+        App\Http\Controllers\GroomerDashboardController::class,
+        'show'
+    ])->name('groomer.dashboard');
 
-    Route::delete('/owner/pets/{pet}', [OwnerDashboardController::class, 'destroyPet'])
-        ->name('owner.pets.destroy');
+    // OWNER PAGES
+    Route::get('/owner/dashboard', [
+        OwnerDashboardController::class,
+        'show'
+    ])->name('owner.dashboard');
 
-    Route::patch('/owner/pets/{pet}/birthdate', [OwnerDashboardController::class, 'updateBirthdate'])
-        ->name('owner.pets.birthdate');
+    // MY PETS
+    Route::get('/owner/pets', [
+        OwnerDashboardController::class,
+        'pets'
+    ])->name('owner.pets');
 
-    Route::post('/owner/pets/{pet}/photo', [OwnerDashboardController::class, 'updatePhoto'])
-        ->name('owner.pets.photo');
+    // ADD PET
+    Route::get('/owner/pets/add', [
+        OwnerDashboardController::class,
+        'createPet'
+    ])->name('owner.pets.create');
 
-    Route::post('/owner/appointments', [OwnerDashboardController::class, 'bookAppointment'])
-        ->name('owner.appointments.store');
+    // APPOINTMENTS
+    Route::get('/owner/appointments', [
+        OwnerDashboardController::class,
+        'appointments'
+    ])->name('owner.appointments');
 
+    // VACCINATION RECORDS
+    Route::get('/owner/vaccinations', [
+        OwnerDashboardController::class,
+        'vaccinations'
+    ])->name('owner.vaccinations');
+
+    // OWNER PET ACTIONS
+    Route::post('/owner/pets', [
+        OwnerDashboardController::class,
+        'storePet'
+    ])->name('owner.pets.store');
+
+    Route::patch('/owner/pet-profile/{pet?}', [
+        OwnerDashboardController::class,
+        'updatePet'
+    ])->name('owner.pet-profile.update');
+
+    // OWNER APPOINTMENT ACTION
+    Route::post('/owner/appointments', [
+        OwnerDashboardController::class,
+        'requestAppointment'
+    ])->name('owner.appointments.store');
 });
 
-// ── BREEZE AUTH ROUTES (login, logout, password reset) ────
+// BREEZE AUTH ROUTES
 require __DIR__.'/auth.php';

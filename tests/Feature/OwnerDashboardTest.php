@@ -50,7 +50,7 @@ class OwnerDashboardTest extends TestCase
             ->assertSee('Add additional pet')
             ->assertSeeInOrder(['id="pet-profile-title"', 'for="pet_id"', 'View pet', 'Add additional pet'])
             ->assertSee('Add birthdate')
-            ->assertSee('Book appointment')
+            ->assertSee('Request an appointment')
             ->assertSee('Anti-rabies')
             ->assertSee('Canine Distemper Virus (CDV)')
             ->assertDontSee('FVRCP (3-in-1 Combo Vaccine)')
@@ -139,7 +139,7 @@ class OwnerDashboardTest extends TestCase
             'vet_id' => $vet->id,
             'appointment_at' => $appointmentAt,
             'reason' => 'Annual check-up',
-        ])->assertSessionHas('status', 'Your appointment has been booked.');
+        ])->assertSessionHas('status', 'Your appointment request has been sent.');
 
         $this->assertDatabaseHas('pets', [
             'id' => $pet->id,
@@ -556,7 +556,7 @@ class OwnerDashboardTest extends TestCase
             ->assertSee('Mild swelling afterward.')
             ->assertSee('Dr. Lee')
             ->assertSee('LOT-123')
-            ->assertSee('Book vaccination')
+            ->assertSee('Request vaccination')
             ->assertSee('Vaccination history and due dates entered by your veterinary team.')
             ->assertDontSee('Add vaccination record')
             ->assertDontSee('Save record')

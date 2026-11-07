@@ -10,17 +10,21 @@ class VaccinationRecord extends Model
     protected $fillable = [
         'pet_id',
         'vet_id',
-        'vaccine_name',
+        'category',
+        'vaccine_key',
         'date_given',
         'next_due_date',
+        'veterinarian_name',
         'dose_number',
+        'brand',
+        'batch_number',
         'notes',
     ];
 
     protected function casts(): array
     {
         return [
-            'date_given'    => 'date',
+            'date_given' => 'date',
             'next_due_date' => 'date',
         ];
     }
@@ -30,8 +34,8 @@ class VaccinationRecord extends Model
         return $this->belongsTo(Pet::class);
     }
 
-    public function vet(): BelongsTo
+    public function veterinarian(): BelongsTo
     {
-        return $this->belongsTo(Vet::class);
+        return $this->belongsTo(Vet::class, 'vet_id');
     }
 }

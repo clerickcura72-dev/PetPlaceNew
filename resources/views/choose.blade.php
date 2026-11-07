@@ -239,22 +239,16 @@ body{
 <!-- CARDS -->
 <div class="cards">
 
-  <!-- VET CARD -->
+  <!-- STAFF CARD -->
   <a href="{{ route('login.vet') }}" class="type-card vet">
-    <div class="icon-wrap">🩺</div>
-    <div class="type-name">Veterinarian</div>
-    <div class="type-desc">For licensed vets and animal health professionals</div>
+    <div class="icon-wrap">🧑‍⚕️</div>
+    <div class="type-name">Staff</div>
+    <div class="type-desc">For veterinarians and pet groomers</div>
     <ul class="features">
-
       <li>Provide veterinary care</li>
       <li>Offer grooming services</li>
-      <li>Manage pending bookings</li>
-      <li>Manage patient records</li>
-      <li>Schedule appointments</li>
-      <li>Track vaccinations</li>
-    
+      <li>Manage appointment requests</li>
     </ul>
-    
     <div class="card-arrow">Get Started →</div>
   </a>
 

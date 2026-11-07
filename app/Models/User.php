@@ -9,73 +9,65 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class User extends Authenticatable
 {
-    public function isAdmin(): bool
-{
-    return $this->role === 'admin';
-}
-
-public function vetProfile(): HasOne
-{
-    return $this->hasOne(Vet::class);
-}
-
-public function dashboardRouteName(): string
-{
-    return match ($this->role) {
-        'admin' => 'admin.dashboard',
-        'vet'   => 'vet.dashboard',
-        default => 'owner.dashboard',
-    };
-}
     use HasFactory, Notifiable;
 
-    /**
-     * The attributes that are mass assignable.
-     */
-protected $fillable = [
-    'name',
-    'email',
-    'password',
-    'role',
-];
-    /**
-     * The attributes that should be hidden for serialization.
-     */
+    protected $fillable = [
+        'name',
+        'email',
+        'date_of_birth',
+        'password',
+        'role',
+    ];
+
     protected $hidden = [
         'password',
         'remember_token',
     ];
 
-    /**
-     * Get the attributes that should be cast.
-     */
     protected function casts(): array
     {
         return [
             'email_verified_at' => 'datetime',
-            'password'          => 'hashed',
+            'date_of_birth' => 'date',
+            'password' => 'hashed',
         ];
     }
 
-    /**
-     * Check if user is a vet
-     */
     public function isVet(): bool
     {
         return $this->role === 'vet';
     }
 
-    /**
-     * Check if user is a pet owner
-     */
     public function isOwner(): bool
     {
         return $this->role === 'owner';
     }
 
-    /**
-     * Get full name
-     */
+    public function isAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
+    public function vetProfile(): HasOne
+    {
+        return $this->hasOne(Vet::class);
+    }
+
+    public function dashboardRouteName(): string
+    {
+        if ($this->isAdmin()) {
+            return 'admin.dashboard';
+        }
+
+        if ($this->isOwner()) {
+            return 'owner.dashboard';
+        }
+
+        return $this->vetProfile()->value('staff_type') === 'groomer'
+            ? 'groomer.dashboard'
+            : 'vet.dashboard';
+    }
+
     public function getFullNameAttribute(): string
     {
         return $this->first_name . ' ' . $this->last_name;

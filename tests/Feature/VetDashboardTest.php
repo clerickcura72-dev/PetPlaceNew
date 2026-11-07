@@ -70,7 +70,7 @@ class VetDashboardTest extends TestCase
         $this->actingAs($user)
             ->get(route('vet.dashboard', ['search' => 'Sam Owner']))
             ->assertOk()
-            ->assertSee('Pending bookings')
+            ->assertSee('Appointment requests')
             ->assertSee('Annual check-up')
             ->assertSee('Mochi')
             ->assertDontSee('Grooming');
@@ -117,7 +117,7 @@ class VetDashboardTest extends TestCase
 
         $this->actingAs($user)
             ->patch(route('vet.appointments.update', $request), ['action' => 'accept'])
-            ->assertSessionHas('status', 'Booking updated.');
+            ->assertSessionHas('status', 'Appointment request updated.');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $request->id,
@@ -132,7 +132,7 @@ class VetDashboardTest extends TestCase
         $this->patch(route('vet.appointments.update', $request), [
             'action' => 'decline',
             'decision_reason' => 'Please choose another time.',
-        ])->assertSessionHas('status', 'Booking updated.');
+        ])->assertSessionHas('status', 'Appointment request updated.');
 
         $this->assertDatabaseHas('appointments', [
             'id' => $request->id,

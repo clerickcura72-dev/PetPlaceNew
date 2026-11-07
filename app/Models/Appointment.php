@@ -8,19 +8,39 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Appointment extends Model
 {
     protected $fillable = [
+        'pet_owner_id',
         'pet_id',
         'vet_id',
-        'service',
-        'appointment_date',
-        'appointment_time',
+        'groomer_id',
+        'service_type',
+        'vaccines',
+        'grooming_addons',
+        'haircut_style',
+        'shampoo_type',
+        'fur_matted',
+        'pet_size',
+        'coat_type',
+        'temperament',
+        'allergies_or_skin_problems',
+        'appointment_at',
         'reason',
         'status',
-        'vet_note',
+        'decision_reason',
     ];
 
     protected function casts(): array
     {
-        return ['appointment_date' => 'date'];
+        return [
+            'appointment_at' => 'datetime',
+            'vaccines' => 'array',
+            'grooming_addons' => 'array',
+            'fur_matted' => 'boolean',
+        ];
+    }
+
+    public function petOwner(): BelongsTo
+    {
+        return $this->belongsTo(PetOwner::class);
     }
 
     public function pet(): BelongsTo
@@ -31,5 +51,10 @@ class Appointment extends Model
     public function vet(): BelongsTo
     {
         return $this->belongsTo(Vet::class);
+    }
+
+    public function groomer(): BelongsTo
+    {
+        return $this->belongsTo(Vet::class, 'groomer_id');
     }
 }

@@ -43,11 +43,11 @@
     </header>
 
     <h1>Welcome, {{ $groomer->first_name }}</h1>
-    <p class="muted">Your grooming appointments and incoming bookings.</p>
+    <p class="muted">Your grooming appointments and incoming requests.</p>
 
     <section class="overview" aria-label="Groomer overview">
         <div class="card"><div class="metric">{{ $todayCount }}</div><div class="muted">Confirmed appointments today</div></div>
-        <div class="card"><div class="metric">{{ $pendingCount }}</div><div class="muted">Pending grooming bookings</div></div>
+        <div class="card"><div class="metric">{{ $pendingCount }}</div><div class="muted">Pending grooming requests</div></div>
     </section>
 
     <section class="card">
